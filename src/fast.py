@@ -12,4 +12,4 @@ def root():
 
 @app.post("/generate")
 def predict():
-    pass
+    raise NotImplementedError
