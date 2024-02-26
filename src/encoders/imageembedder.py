@@ -53,3 +53,6 @@ class CLIPImageEmbedder(ImageEmbedder):
     def forward(self, x):
         # preprocess the image, x assumed in range [-1, 1]
         return self.model.encode_image(self.preprocess(x))
+
+    def __call__(self, *args, **kwargs):
+        return self.forward(*args, **kwargs)

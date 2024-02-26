@@ -21,7 +21,13 @@ class ClipTextEmbedder(TextEmbedder):
     """
 
     def __init__(
-        self, version, device="cuda", max_length=77, n_repeat=1, normalize=True
+        self,
+        version,
+        device="cuda",
+        max_length=77,
+        n_repeat=1,
+        normalize=True,
+        pretrained_weights=None,
     ):
         super().__init__()
         self.model, _ = clip.load(version, jit=False, device="cpu")
@@ -29,6 +35,11 @@ class ClipTextEmbedder(TextEmbedder):
         self.max_length = max_length
         self.n_repeat = n_repeat
         self.normalize = normalize
+
+        if pretrained_weights:
+            self.model.load_state_dict(
+                torch.load(pretrained_weights, map_location="cpu")
+            )
 
     def freeze(self):
         self.model = self.model.eval()
