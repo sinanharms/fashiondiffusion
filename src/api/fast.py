@@ -10,6 +10,11 @@ def root():
     return JSONResponse(status_code=200, content={"message": "not implemented"})
 
 
+@app.post("/inference")
+def inference():
+    raise NotImplementedError
+
+
 @app.post("/generate")
-def predict():
+def generate():
     raise NotImplementedError
