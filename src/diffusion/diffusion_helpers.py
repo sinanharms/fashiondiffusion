@@ -1,5 +1,8 @@
+import math
+
 import torch
 import torch.nn as nn
+from einops import repeat
 
 
 def checkpoint(func, inputs, param, flag):
@@ -88,6 +91,23 @@ def normalization(channels):
     A wrapper around torch.nn.BatchNorm2d to allow for easy mocking in tests.
     """
     return GroupNorm32(32, channels)
+
+
+def timestep_embedding(timesteps, dim, max_period=10000, repeat_only: bool = False):
+    if not repeat_only:
+        half_dim = dim // 2
+        freqs = torch.exp(
+            -math.log(max_period)
+            * torch.arange(start=0, end=half_dim, dtype=torch.float32)
+            / half_dim
+        ).to(timesteps.device)
+        args = timesteps[:, None].float() * freqs[None]
+        emb = torch.cat([args.cos(args), args.sin(args)], dim=-1)
+        if dim % 2:
+            emb = torch.cat([emb, torch.zeros_like(emb[:, :1])], dim=-1)
+        else:
+            emb = repeat(timesteps, "b -> b d", d=dim)
+        return emb
 
 
 class GroupNorm32(nn.GroupNorm):
