@@ -7,6 +7,7 @@ import inspect
 import logging
 from typing import List, Optional, Union
 
+import lightning as L
 import numpy as np
 import PIL.Image
 import torch
@@ -28,6 +29,48 @@ def preprocess_image(image: PIL.Image.Image):
     image = image[None].transpose(0, 3, 1, 2)
     image = torch.from_numpy(image)
     return 2.0 * image - 1.0
+
+
+class EmbeddingOptimizer(L.LightningModule):
+    def __init__(self, text_encoder, unet, scheduler, feature_extractor):
+        super().__init__()
+        self.text_encoder = text_encoder
+        self.unet = unet
+        self.scheduler = scheduler
+        self.feature_extractor = feature_extractor
+
+    def forward(self, text, image):
+        raise NotImplementedError
+
+    def enable_attention_slicing(self, slice_size: Optional[Union[str, int]] = "auto"):
+        """
+        Enable attention slicing for the text encoder.
+        """
+        if slice_size == "auto":
+            slize_size = self.unet.config.attention_head_dim // 2
+        self.unet.set_attention_slicing(slice_size)
+
+    def disable_attention_slicing(self):
+        """
+        Disable attention slicing for the text encoder.
+        """
+        self.unet.disable_attention_slicing()
+
+    def save_text_embeddings(self, path: str):
+        """
+        Save the optimized text embeddings to the given path.
+        """
+        text_embeddings = self.text_embeddings.detach().cpu().numpy()
+        np.save(path, text_embeddings)
+
+    def training_step(self, batch, batch_idx):
+        images = batch["image"]
+        text = batch["text"]
+
+        self.unet.requires_grad_(False)
+        self.text_encoder.requires_grad_(True)
+        self.unet.eval()
+        self.text_encoder.eval()
 
 
 class EmbeddingOptimizationPipeline(DiffusionPipeline):
