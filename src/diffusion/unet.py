@@ -253,7 +253,7 @@ class UNetModel(nn.Module):
         use_new_attention_order: bool = False,
         use_spatial_transformer: bool = True,
         transformer_depth: int = 1,
-        context_dim=None,
+        context_dim: int = 640,
         n_embed=None,
         legacy=True,
     ):
