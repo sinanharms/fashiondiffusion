@@ -8,7 +8,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from diffusion.diffusion_helpers import (
+from modules.spatialattention import SpatialTransformer
+from modules.utils import (
     avg_pool_nd,
     checkpoint,
     conv_nd,
@@ -17,7 +18,6 @@ from diffusion.diffusion_helpers import (
     timestep_embedding,
     zero_module,
 )
-from diffusion.spatialattention import SpatialTransformer
 
 
 def convert_module_to_fp16(x):

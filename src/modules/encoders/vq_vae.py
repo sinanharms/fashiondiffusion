@@ -1,31 +1,11 @@
 from abc import abstractmethod
-from typing import Any, Dict, List
+from typing import Any, Dict, List, TypeVar
 
 import torch
 import torch.nn.functional as F
 from torch import nn
 
-
-class BaseVAE(nn.Module):
-    def __init__(self):
-        super().__init__()
-
-    def encode(self, x: torch.Tensor, **kwargs) -> List[torch.Tensor]:
-        raise NotImplementedError
-
-    def decode(self, z: torch.Tensor, **kwargs) -> Any:
-        raise NotImplementedError
-
-    def sample(self, z, batch_size: int, device: str, **kwargs) -> torch.Tensor:
-        raise NotImplementedError
-
-    @abstractmethod
-    def forward(self, *x: torch.Tensor) -> torch.Tensor:
-        pass
-
-    @abstractmethod
-    def loss(self, *x: Any, **kwargs) -> torch.Tensor:
-        pass
+from modules.encoders.base import BaseVAE
 
 
 class VectorQuantizer(nn.Module):
@@ -38,7 +18,7 @@ class VectorQuantizer(nn.Module):
         self.embedding = nn.Embedding(self.K, self.D)
         self.embedding.weight.data.uniform_(-1 / self.K, 1 / self.K)
 
-    def forward(self, latents: torch.Tensor) -> torch.Tensor:
+    def forward(self, latents: Torch) -> Torch:
         latents = latents.permute(
             0, 2, 3, 1
         ).contiguous()  # [B x D x H x W] -> [B x H x W x D]
@@ -62,9 +42,8 @@ class VectorQuantizer(nn.Module):
         encoding_one_hot.scatter_(1, encoding_indices, 1)
 
         # quantize latents
-        quantized_latents = torch.matmul(encoding_one_hot, self.embedding.weight).view(
-            latents_shape
-        )
+        quantized_latents = torch.matmul(encoding_one_hot, self.embedding.weight)
+        quantized_latents = quantized_latents.view(latents_shape)
 
         # compute loss for embedding
         loss = F.mse_loss(quantized_latents.detach(), latents)
@@ -87,7 +66,7 @@ class ResidualLayer(nn.Module):
             nn.Conv2d(out_channels, out_channels, kernel_size=1, bias=False),
         )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: Torch) -> Torch:
         return x + self.resblock(x)
 
 
@@ -195,14 +174,14 @@ class VQVAE(BaseVAE):
 
         self.decoder.append(nn.Sequential(*decoder_layers))
 
-    def encode(self, x: torch.Tensor) -> List[torch.Tensor]:
+    def encode(self, x: Torch, **kwargs) -> List[Torch]:
         x = self.encoder(x)
         return [x]
 
-    def decode(self, z: torch.Tensor, **kwargs) -> Any:
+    def decode(self, z: Torch, **kwargs) -> Any:
         return self.decoder(z)
 
-    def forward(self, x: torch.Tensor) -> List[torch.Tensor]:
+    def forward(self, x: Torch) -> List[Torch]:
         encoding = self.encode(x)[0]
         quantized_encoding, vq_loss = self.vq_layer(encoding)
         return [self.decode(quantized_encoding), x, vq_loss]
@@ -220,8 +199,8 @@ class VQVAE(BaseVAE):
             "VQ_Loss": vq_loss,
         }
 
-    def sample(self, z, batch_size: int, device: str, **kwargs) -> torch.Tensor:
+    def sample(self, z, batch_size: int, device: str, **kwargs) -> Torch:
         raise Warning("Sample method not implemented for VQVAE")
 
-    def generate(self, x: torch.Tensor, **kwargs) -> torch.Tensor:
+    def generate(self, x: Torch, **kwargs) -> Torch:
         return self.forward(x)[0]
