@@ -5,6 +5,16 @@ import torch.nn as nn
 from einops import repeat
 
 
+def get_device():
+    if torch.cuda.is_available():
+        device = "cuda"
+    elif torch.backends.mps.is_available():
+        device = "mps"
+    else:
+        device = "cpu"
+    return torch.device(device)
+
+
 def checkpoint(func, inputs, param, flag):
     if flag:
         args = tuple(inputs) + tuple(param)
@@ -113,3 +123,12 @@ def timestep_embedding(timesteps, dim, max_period=10000, repeat_only: bool = Fal
 class GroupNorm32(nn.GroupNorm):
     def forward(self, x):
         return super().forward(x.float()).type(x.dtype)
+
+
+def match_shape(values, broadcast_array, tensor_format="pt"):
+    values = values.flatten()
+    while len(values.shape) < len(broadcast_array.shape):
+        values = values[..., None]
+    if tensor_format == "pt":
+        values = values.to(broadcast_array.device)
+    return values
