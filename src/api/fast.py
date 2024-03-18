@@ -31,5 +31,4 @@ def generate():
 
 @app.get("/dataexplorer", response_class=Response)
 async def data_explorer():
-    streamlit_output = st._server._get_layout(data_explorer)._repr_html_()
-    return Response(content=streamlit_output, media_type="text/html")
+    raise NotImplementedError

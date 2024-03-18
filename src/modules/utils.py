@@ -3,6 +3,7 @@ import math
 import torch
 import torch.nn as nn
 from einops import repeat
+from PIL import Image
 
 
 def get_device():
@@ -132,3 +133,17 @@ def match_shape(values, broadcast_array, tensor_format="pt"):
     if tensor_format == "pt":
         values = values.to(broadcast_array.device)
     return values
+
+
+def unnormalize_to_zero_one(tensor):
+    return (tensor + 1) / 2
+
+
+def numpy_to_pil(array):
+    if array.ndim == 3:
+        array = array[None, ...]
+
+    image = (array * 255).round().astype("uint8")
+    pil_images = [Image.fromarray(img) for img in image]
+
+    return pil_images

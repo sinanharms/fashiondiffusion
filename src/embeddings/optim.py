@@ -209,4 +209,4 @@ class EmbeddingOptimizationPipeline(DiffusionPipeline):
             if "prompt" in batch:
                 prompt = batch["prompt"]
 
-            self.train(prompt=prompt, images=images)
+                self.train(prompt=prompt, image=images)
