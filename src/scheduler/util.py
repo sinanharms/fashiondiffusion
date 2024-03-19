@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 
 
 def make_ddim_schedule(ddim_discr_method, num_ddim_steps, num_ddpm_steps, verbose=True):
@@ -30,4 +31,18 @@ def make_ddim_sampling_parameters(alpha_prods, ddim_timesteps, eta, verbose=True
     if verbose:
         print(f"alphas from ddim smaple: a_t: {alphas}, a_t-1: {alphas_prev}")
         print(f"sigma from ddim smaple: {sigma} for chosen values of eta: {eta}")
-    return alphas, sigma
+    return sigma, alphas, alphas_prev
+
+
+def noise_like(shape, device, repeat=False):
+    repeat_noise = lambda: torch.randn((1, *shape[1:]), device=device).repeat(
+        shape[0], *((1,) * (len(shape) - 1))
+    )
+    noise = lambda: torch.randn(shape, device=device)
+    return repeat_noise() if repeat else noise()
+
+
+def extract_into_tensor(a, t, x_shape):
+    b, *_ = t.shape
+    out = a.gather(-1, t)
+    return out.reshape(b, *((1,) * (len(x_shape) - 1)))

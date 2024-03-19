@@ -8,6 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from modules.attention import AttentionBlock
 from modules.spatialattention import SpatialTransformer
 from modules.utils import (
     avg_pool_nd,
@@ -259,10 +260,16 @@ class UNetModel(nn.Module):
     ):
         super().__init__()
         if use_spatial_transformer:
-            assert context_dim is not None
+            assert context_dim is not None, "Spatial transformer requires context dim"
 
         if context_dim is not None:
-            assert use_spatial_transformer
+            assert (
+                use_spatial_transformer
+            ), "Context dimension requires spatial transformer"
+            from omegaconf.listconfig import ListConfig
+
+            if isinstance(type(context_dim), ListConfig):
+                context_dim = list(context_dim)
 
         if num_heads_upsample == -1:
             num_heads_upsample = num_heads
@@ -340,7 +347,15 @@ class UNetModel(nn.Module):
                             else num_head_channels
                         )
                     layers.append(
-                        SpatialTransformer(
+                        AttentionBlock(
+                            ch,
+                            use_checkpoint=use_checkpoint,
+                            num_heads=num_heads,
+                            num_head_channels=dim_head,
+                            use_new_attention_order=use_new_attention_order,
+                        )
+                        if not use_spatial_transformer
+                        else SpatialTransformer(
                             ch,
                             num_heads,
                             dim_head,
@@ -390,7 +405,15 @@ class UNetModel(nn.Module):
                 use_checkpoint=use_checkpoint,
                 use_scale_shift_norm=use_scale_shift_norm,
             ),
-            SpatialTransformer(
+            AttentionBlock(
+                ch,
+                use_checkpoint=use_checkpoint,
+                num_heads=num_heads,
+                num_head_channels=dim_head,
+                use_new_attention_order=use_new_attention_order,
+            )
+            if not use_spatial_transformer
+            else SpatialTransformer(
                 ch,
                 num_heads,
                 dim_head,
@@ -437,7 +460,15 @@ class UNetModel(nn.Module):
                             else num_head_channels
                         )
                     layers.append(
-                        SpatialTransformer(
+                        AttentionBlock(
+                            ch,
+                            use_checkpoint=use_checkpoint,
+                            num_heads=num_heads,
+                            num_head_channels=dim_head,
+                            use_new_attention_order=use_new_attention_order,
+                        )
+                        if not use_spatial_transformer
+                        else SpatialTransformer(
                             ch,
                             num_heads,
                             dim_head,

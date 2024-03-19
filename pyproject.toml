@@ -5,7 +5,11 @@ description = "framework for a text2image diffusion model"
 authors = [
     {name = "Sinan Harms", email = "sinan.harms@uni-bielefeld.de"},
 ]
-dependencies = []
+dependencies = [
+    "torch>=2.2.1",
+    "streamlit>=1.32.2",
+    "fastapi>=0.110.0",
+]
 requires-python = ">=3.11"
 readme = "README.md"
 license = {text = "MIT"}

@@ -11,9 +11,11 @@ import PIL.Image
 import torch
 import torch.nn.functional as F
 from accelerate import Accelerator
-from diffusers import DiffusionPipeline
+from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+
+from modules.utils import get_device
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +30,7 @@ def preprocess_image(image: PIL.Image.Image):
     return 2.0 * image - 1.0
 
 
-class EmbeddingOptimizationPipeline(DiffusionPipeline):
+class EmbeddingOptimizationPipeline(nn.Module):
     """
     Pipeline for optimizing the embedding of a given image.
     """
@@ -46,20 +48,6 @@ class EmbeddingOptimizationPipeline(DiffusionPipeline):
             feature_extractor=feature_extractor,
         )
 
-    def enable_attention_slicing(self, slice_size: Optional[Union[str, int]] = "auto"):
-        """
-        Enable attention slicing for the text encoder.
-        """
-        if slice_size == "auto":
-            slize_size = self.unet.config.attention_head_dim // 2
-        self.unet.set_attention_slicing(slice_size)
-
-    def disable_attention_slicing(self):
-        """
-        Disable attention slicing for the text encoder.
-        """
-        self.unet.disable_attention_slicing()
-
     def save_text_embeddings(self, path: str):
         """
         Save the optimized text embeddings to the given path.
@@ -67,7 +55,7 @@ class EmbeddingOptimizationPipeline(DiffusionPipeline):
         text_embeddings = self.text_embeddings.detach().cpu().numpy()
         np.save(path, text_embeddings)
 
-    def train(
+    def optimize_embeddings(
         self,
         prompt: Union[str, List[str]],
         image: Union[torch.FloatTensor, PIL.Image.Image],
@@ -91,7 +79,7 @@ class EmbeddingOptimizationPipeline(DiffusionPipeline):
             device = kwargs.pop("torch_device")
 
             if device is None:
-                device = "cuda" if torch.cuda.is_available() else "cpu"
+                device = get_device()
             self.to(device)
 
         if height % 8 != 0 or width % 8 != 0:
