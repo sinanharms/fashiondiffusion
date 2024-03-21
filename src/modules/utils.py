@@ -1,4 +1,6 @@
+import importlib
 import math
+from inspect import isfunction
 
 import torch
 import torch.nn as nn
@@ -147,3 +149,43 @@ def numpy_to_pil(array):
     pil_images = [Image.fromarray(img) for img in image]
 
     return pil_images
+
+
+def count_params(model, verbose=False):
+    """
+    Count the number of parameters in a model.
+    """
+    num_params = sum(p.numel() for p in model.parameters())
+    if verbose:
+        print(f"{model.__class__.__name__} has {num_params * 1.e-6:.2f} M params.")
+    return num_params
+
+
+def default(value, d):
+    if value is not None:
+        return value
+    return d() if isfunction(d) else d
+
+
+def instantiate_from_config(config):
+    """
+    Instantiate a class from a configuration dictionary.
+    """
+    if not "target" in config:
+        if config == "__is_first_stage__":
+            return None
+        elif config == "__is_unconditional__":
+            return None
+        raise KeyError("Config must have a target key.")
+    return get_obj_from_str(config["target"])(**config.get("params", {}))
+
+
+def get_obj_from_str(obj_str, reload=False):
+    """
+    Get an object from a string.
+    """
+    module, cls = obj_str.rsplit(".", 1)
+    if reload:
+        module_imp = importlib.import_module(module)
+        importlib.reload(module_imp)
+    return getattr(importlib.import_module(module), cls)
