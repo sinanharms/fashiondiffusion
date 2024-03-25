@@ -5,7 +5,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from modules.encoders.base import BaseVAE
+from modules.encoders.base import BaseVAE, Torch
 
 
 class VectorQuantizer(nn.Module):

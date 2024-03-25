@@ -46,6 +46,11 @@ class ClipTextEmbedder(TextEmbedder):
         for p in self.model.parameters():
             p.requires_grad = False
 
+    def unfreeze(self):
+        self.model = self.model.train()
+        for p in self.model.parameters():
+            p.requires_grad = True
+
     def forward(self, text):
         tokens = clip.tokenize(text).to(self.device)
         z = self.model.encode_text(tokens)

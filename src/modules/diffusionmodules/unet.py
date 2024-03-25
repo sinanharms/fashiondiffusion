@@ -297,7 +297,6 @@ class UNetModel(nn.Module):
         self.num_heads = num_heads
         self.num_head_channels = num_head_channels
         self.num_heads_upsample = num_heads_upsample
-        self.predict_codebook_ids = n_embed is not None
 
         time_embed_dim = model_channels * 4
         self.time_embed = nn.Sequential(
@@ -499,11 +498,6 @@ class UNetModel(nn.Module):
                 nn.SiLU(),
                 zero_module(conv_nd(dims, ch, out_channels, 3, padding=1)),
             )
-            if self.predict_codebook_ids:
-                self.id_predictor = nn.Sequential(
-                    normalization(ch),
-                    conv_nd(dims, model_channels, n_embed, 1),
-                )
 
     def convert_to_fp16(self):
         """
@@ -543,7 +537,5 @@ class UNetModel(nn.Module):
             h = torch.cat([h, hs.pop()], dim=1)
             h = module(h, emb, context)
         h = h.type(x.dtype)
-        if self.predict_codebook_ids:
-            return self.id_predictor(h)
-        else:
-            return self.out(h)
+
+        return self.out(h)
