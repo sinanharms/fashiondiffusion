@@ -1,15 +1,12 @@
-import math
 from abc import abstractmethod
-from functools import partial
-from typing import Iterable, List, Set, Tuple
+from typing import List, Set, Tuple
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from modules.attention import AttentionBlock
-from modules.spatialattention import SpatialTransformer
+from modules.diffusionmodules.attention import AttentionBlock
+from modules.diffusionmodules.spatialattention import SpatialTransformer
 from modules.utils import (
     avg_pool_nd,
     checkpoint,

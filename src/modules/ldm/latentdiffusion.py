@@ -7,15 +7,18 @@ from einops import rearrange, repeat
 from loguru import logger
 from pytorch_lightning.utilities.rank_zero import rank_zero_only
 from pytorch_lightning.utilities.types import OptimizerLRScheduler
+from torch.optim.lr_scheduler import LambdaLR
 from torchvision.utils import make_grid
 from tqdm import tqdm
 
+from modules.diffusionmodules.diagonalgaussian import DiagonalGaussian
 from modules.ldm.diffusion import Diffusion, __conditioning_keys__
 from modules.utils import default, instantiate_from_config
 
 __cond_stage_keys__ = ["image", "LR_image", "segmentation", "bbox_img"]
 
 from scheduler.ddim import DDIMSampler
+from scheduler.lr_scheduler import LambdaWarmupCosineScheduler
 from scheduler.util import extract_into_tensor, noise_like
 
 
