@@ -1,11 +1,6 @@
-import fastapi
-import PIL.Image as Image
-import streamlit as st
 from fastapi import FastAPI, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-
-from webui.dataexplorer import data_explorer
 
 app = FastAPI(title="Fashion Diffusion", description="")
 

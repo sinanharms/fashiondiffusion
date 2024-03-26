@@ -1,7 +1,7 @@
 import h5py
 import torch
+import torchvision.transforms as T
 from torch.utils.data import Dataset, Subset
-from tqdm import tqdm
 
 
 class FashionGenDataset(Dataset):
@@ -25,8 +25,8 @@ class FashionGenDataset(Dataset):
             "input_department": self.file["input_department"][idx][0].decode("utf-8"),
             "input_description": self.file["input_description"][idx][0].decode("utf-8"),
             "input_gender": self.file["input_gender"][idx][0].decode("utf-8"),
-            "input_image": torch.tensor(self.file["input_image"][idx]).permute(
-                (2, 0, 1)
+            "input_image": T.ToPILImage()(
+                torch.tensor(self.file["input_image"][idx]).permute((2, 0, 1))
             ),
             "input_msrpUSD": self.file["input_msrpUSD"][idx][0],
             "input_name": self.file["input_name"][idx][0].decode("utf-8"),
@@ -34,5 +34,14 @@ class FashionGenDataset(Dataset):
             "input_productID": self.file["input_productID"][idx][0],
             "input_season": self.file["input_season"][idx][0].decode("utf-8"),
             "input_subcategory": self.file["input_subcategory"][idx][0].decode("utf-8"),
+        }
+        return sample
+
+    def __get_sample__(self, idx):
+        sample = {
+            "image": T.ToPILImage()(
+                torch.tensor(self.file["input_image"][idx]).permute((2, 0, 1))
+            ),
+            "description": self.file["input_description"][idx][0],
         }
         return sample
