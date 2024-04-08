@@ -21,12 +21,12 @@ def get_device():
 def checkpoint(func, inputs, param, flag):
     if flag:
         args = tuple(inputs) + tuple(param)
-        return CheckPointFunction.apply(func, len(inputs), *args)
+        return CheckpointFunction.apply(func, len(inputs), *args)
     else:
         func(*inputs)
 
 
-class CheckPointFunction(torch.autograd.Function):
+class CheckpointFunction(torch.autograd.Function):
     @staticmethod
     def forward(ctx, run_function, length, *args):
         ctx.run_function = run_function
@@ -38,21 +38,18 @@ class CheckPointFunction(torch.autograd.Function):
         return output
 
     @staticmethod
-    def backward(ctx, *output_grads):
+    def backward(ctx, *grad_output):
         ctx.input_tensors = [x.detach().requires_grad_(True) for x in ctx.input_tensors]
         with torch.enable_grad():
             shallow_copies = [x.view_as(x) for x in ctx.input_tensors]
             output = ctx.run_function(*shallow_copies)
-        input_grads = torch.autograd.grad(
-            output,
-            ctx.input_tensors + ctx.input_params,
-            output_grads,
-            allow_unused=True,
+        grad_input = torch.autograd.grad(
+            output, ctx.input_tensors + ctx.input_params, grad_output, allow_unused=True
         )
         del ctx.input_tensors
         del ctx.input_params
         del output
-        return (None, None) + input_grads
+        return (None, None) + grad_input
 
 
 def linear(*args, **kwargs):
@@ -107,20 +104,24 @@ def normalization(channels):
 
 
 def timestep_embedding(timesteps, dim, max_period=10000, repeat_only: bool = False):
+    """
+    create sinusoidal timestep embeddings
+
+    """
     if not repeat_only:
-        half_dim = dim // 2
+        half = dim // 2
         freqs = torch.exp(
             -math.log(max_period)
-            * torch.arange(start=0, end=half_dim, dtype=torch.float32)
-            / half_dim
-        ).to(timesteps.device)
+            * torch.arange(start=0, end=half, dtype=torch.float32)
+            / half
+        ).to(device=timesteps.device)
         args = timesteps[:, None].float() * freqs[None]
-        emb = torch.cat([args.cos(args), args.sin(args)], dim=-1)
+        emb = torch.cat([torch.cos(args), torch.sin(args)], dim=-1)
         if dim % 2:
             emb = torch.cat([emb, torch.zeros_like(emb[:, :1])], dim=-1)
-        else:
-            emb = repeat(timesteps, "b -> b d", d=dim)
-        return emb
+    else:
+        emb = repeat(timesteps, "b -> b d", d=dim)
+    return emb
 
 
 class GroupNorm32(nn.GroupNorm):

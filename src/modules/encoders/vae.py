@@ -4,7 +4,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from modules.encoders.base import BaseVAE, Torch
+from src.modules.encoders.base import BaseVAE, Torch
 
 
 class SimpleVAE(BaseVAE):

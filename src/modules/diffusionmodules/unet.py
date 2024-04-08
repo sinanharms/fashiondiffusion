@@ -5,9 +5,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from modules.diffusionmodules.attention import AttentionBlock
-from modules.diffusionmodules.spatialattention import SpatialTransformer
-from modules.utils import (
+from src.modules.diffusionmodules.attention import AttentionBlock
+from src.modules.diffusionmodules.spatialattention import SpatialTransformer
+from src.modules.utils import (
     avg_pool_nd,
     checkpoint,
     conv_nd,

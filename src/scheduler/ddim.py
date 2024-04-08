@@ -1,11 +1,9 @@
-from functools import partial
-
 import numpy as np
 import torch
 from tqdm import tqdm
 
-from modules.utils import get_device
-from scheduler.util import (
+from src.modules.utils import get_device
+from src.scheduler.util import (
     extract_into_tensor,
     make_ddim_sampling_parameters,
     make_ddim_schedule,

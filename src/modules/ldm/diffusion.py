@@ -7,15 +7,14 @@ import pytorch_lightning as pl
 import torch
 import torch.nn.functional as F
 from einops import rearrange, repeat
-from pytorch_lightning.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
+from pytorch_lightning.utilities.types import OptimizerLRScheduler
 from torch import nn
 from torchvision.utils import make_grid
 from tqdm import tqdm
-from typing_extensions import Self
 
-from modules.ema import EMA
-from modules.utils import count_params, default, instantiate_from_config
-from scheduler.util import extract_into_tensor, make_beta_schedule, noise_like
+from src.modules.ema import EMA
+from src.modules.utils import count_params, default, instantiate_from_config
+from src.scheduler.util import extract_into_tensor, make_beta_schedule, noise_like
 
 __conditioning_keys__ = {
     "concat": "c_concat",
@@ -31,7 +30,7 @@ class Diffusion(pl.LightningModule):
         beta_schedule="linear",
         loss_type="l2",
         ckpt_path=None,
-        ignore_keys=[],
+        ignore_keys=None,
         load_only_unet=False,
         monitor="val/loss",
         use_ema=True,
@@ -55,6 +54,8 @@ class Diffusion(pl.LightningModule):
         logvar_init: float = 0.0,
     ):
         super().__init__()
+        if ignore_keys is None:
+            ignore_keys = list()
         assert parameterization in [
             "eps",
             "x0",
@@ -89,7 +90,7 @@ class Diffusion(pl.LightningModule):
             self.monitor = monitor
         if ckpt_path is not None:
             self.init_from_ckpt(
-                ckpt_path, ignore_keys=ignore_keys, load_only_unet=load_only_unet
+                ckpt_path, ignore_keys=ignore_keys, only_model=load_only_unet
             )
 
         self.register_schedule(

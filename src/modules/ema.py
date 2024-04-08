@@ -1,5 +1,4 @@
 import torch
-from loguru import logger
 from torch import nn
 
 

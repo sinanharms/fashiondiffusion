@@ -7,9 +7,9 @@ from PIL import Image
 from torchvision import utils
 from torchvision.transforms import transforms
 
-from modules.diffusionmodules.unet import UNetModel
-from modules.utils import get_device
-from scheduler.ddim import DDIMScheduler
+from src.modules.diffusionmodules.unet import UNetModel
+from src.modules.utils import get_device
+from src.scheduler.ddim import DDIMSampler
 
 
 def generate(
@@ -27,7 +27,7 @@ def generate(
     pretrained = torch.load(pre_trained_model_path)
     unet.load_state_dict(pretrained, strict=False)
 
-    noise_scheduler = DDIMScheduler(
+    noise_scheduler = DDIMSampler(
         num_train_timesteps=n_timesteps, beta_schedule="cosine"
     )
 
@@ -36,7 +36,7 @@ def generate(
 
     with torch.no_grad():
         generator = torch.manual_seed(0)
-        samples = noise_scheduler.generate(
+        samples = noise_scheduler.sample(
             model=unet,
             batch_size=batch_size,
             generator=generator,

@@ -1,11 +1,10 @@
-from abc import abstractmethod
-from typing import Any, Dict, List, TypeVar
+from typing import Any, Dict, List
 
 import torch
 import torch.nn.functional as F
 from torch import nn
 
-from modules.encoders.base import BaseVAE, Torch
+from src.modules.encoders.base import BaseVAE, Torch
 
 
 class VectorQuantizer(nn.Module):
