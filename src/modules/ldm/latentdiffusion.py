@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import torch
@@ -18,8 +18,8 @@ from src.modules.utils import default, instantiate_from_config
 
 __cond_stage_keys__ = ["image", "LR_image", "segmentation", "bbox_img"]
 
-from src.scheduler.ddim import DDIMSampler
-from src.scheduler.util import extract_into_tensor, noise_like
+from src.modules.sampler.ddim import DDIMSampler
+from src.modules.utils import extract_into_tensor, noise_like
 
 
 def disable_train(self, mode=True):
@@ -109,7 +109,7 @@ class LatentDiffusion(Diffusion):
             z = self.get_first_stage_encoding(encoder_posterior).detach
             del self.scale_factor
             self.register_buffer("scale_factor", 1.0 / z.flatten().std())
-            print(f"New scale factor: {self.scale_factor}")
+            logger.info(f"New scale factor: {self.scale_factor}")
 
     def register_schedule(
         self,
@@ -142,10 +142,10 @@ class LatentDiffusion(Diffusion):
     def instantiate_cond_stage(self, config):
         if not self.cond_stage_trainable:
             if config == "__is_first_stage__":
-                print("Using first stage also as cond stage.")
+                logger.info("Using first stage also as cond stage.")
                 self.cond_stage_model = self.first_stage_model
             elif config == "__is_unconditional__":
-                print(f"Training {self.__class__.__name__} as an unconditional model.")
+                logger.info(f"Training {self.__class__.__name__} unconditional model.")
                 self.cond_stage_model = None
                 # self.be_unconditional = True
             else:
@@ -973,7 +973,7 @@ class LatentDiffusion(Diffusion):
         return optimizer
 
     @torch.no_grad()
-    def to_rqb(self, x):
+    def to_rgb(self, x):
         x = x.float()
         if not hasattr(self, "colorize"):
             self.colorize = torch.rand(3, x.shape[1], 1, 1).to(x)

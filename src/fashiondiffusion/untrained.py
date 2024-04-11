@@ -1,15 +1,11 @@
-import os
-from datetime import datetime
-
 import torch
-import torch.nn.functional as F
 from PIL import Image
 from torchvision import utils
 from torchvision.transforms import transforms
 
 from src.modules.diffusionmodules.unet import UNetModel
+from src.modules.sampler.ddim import DDIMSampler
 from src.modules.utils import get_device
-from src.scheduler.ddim import DDIMSampler
 
 
 def generate(

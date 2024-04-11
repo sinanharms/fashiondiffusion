@@ -13,8 +13,14 @@ from torchvision.utils import make_grid
 from tqdm import tqdm
 
 from src.modules.ema import EMA
-from src.modules.utils import count_params, default, instantiate_from_config
-from src.scheduler.util import extract_into_tensor, make_beta_schedule, noise_like
+from src.modules.utils import (
+    count_params,
+    default,
+    extract_into_tensor,
+    instantiate_from_config,
+    make_beta_schedule,
+    noise_like,
+)
 
 __conditioning_keys__ = {
     "concat": "c_concat",
