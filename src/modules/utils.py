@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from einops import repeat
+from loguru import logger
 from PIL import Image
 
 
@@ -180,6 +181,30 @@ def instantiate_from_config(config):
             return None
         raise KeyError("Config must have a target key.")
     return get_obj_from_str(config["target"])(**config.get("params", {}))
+
+
+def load_model_from_config(config, ckpt_path=None, verbose=False):
+    """
+    Load a model from a configuration dictionary.
+    """
+    logger.info(f"Instantiating model from config: {config}")
+    logger.info("Loading model from checkpoint: {ckpt_path}")
+    model = instantiate_from_config(config)
+    pl_sd = torch.load(ckpt_path, map_location="cpu")
+    if "global_step" in pl_sd:
+        logger.info(f"Global Step: {pl_sd['global_step']}")
+    state_dict = pl_sd["state_dict"]
+    m, u = model.load_state_dict(state_dict, strict=False)
+    if len(m) > 0 and verbose:
+        logger.info(f"Missing keys: {m}")
+        print(m)
+    if len(u) > 0 and verbose:
+        logger.info(f"Unexpected keys: {u}")
+        print(u)
+
+    model.cuda()
+    model.eval()
+    return model
 
 
 def get_obj_from_str(obj_str, reload=False):

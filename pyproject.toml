@@ -1,6 +1,6 @@
 [project]
 name = "fashiondiffusion"
-version = "0.1.0"
+version = "0.2.0"
 description = "framework for a text2image diffusion model"
 authors = [
     {name = "Sinan Harms", email = "sinan.harms@uni-bielefeld.de"},
@@ -9,6 +9,11 @@ dependencies = [
     "torch>=2.2.1",
     "streamlit>=1.32.2",
     "fastapi>=0.110.0",
+    "loguru>=0.7.2",
+    "omegaconf>=2.3.0",
+    "tqdm>=4.66.2",
+    "einops>=0.7.0",
+    "clip @ git+https://github.com/openai/CLIP.git",
 ]
 requires-python = ">=3.11"
 readme = "README.md"
@@ -17,3 +22,5 @@ license = {text = "MIT"}
 [build-system]
 requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.pdm]

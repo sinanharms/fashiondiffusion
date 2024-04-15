@@ -9,7 +9,7 @@ model:
     timesteps: 1000
     first_stage_key: image
     cond_stage_key: caption
-    image_size: 256
+    image_size: 512
     channels: 3
     cond_stage_trainable: true
     conditioning_key: crossattn
@@ -17,7 +17,7 @@ model:
     unet_config:
       target: src.modules.diffusionmodules.unet.UNetModel
       params:
-        image_size: 256
+        image_size: 512
         in_channels: 3
         out_channels: 3
         model_channels: 192
@@ -43,7 +43,7 @@ model:
         ddconfig:
           double_z: false
           z_channels: 3
-          resolution: 256
+          resolution: 512
           in_channels: 3
           out_ch: 3
           ch: 128
@@ -57,7 +57,7 @@ model:
         lossconfig:
           target: torch.nn.Identity
     cond_stage_config:
-      target: ldm.modules.encoders.modules.BERTEmbedder
+      target: ldm.modules.encoders.textembedder.ClipTextEmbedder
       params:
         n_embed: 640
         n_layer: 32
