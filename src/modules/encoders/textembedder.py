@@ -17,7 +17,7 @@ class TextEmbedder(nn.Module):
 
 class ClipTextEmbedder(TextEmbedder):
     """
-    A wrapper around OpenAI's CLIP model for text embedding.
+    A wrapper around OpenAI's CLIP .model for text embedding.
     """
 
     def __init__(

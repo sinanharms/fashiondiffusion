@@ -202,17 +202,17 @@ class ResBlock(TimestepBlock):
 
 class UNetModel(nn.Module):
     """
-    A UNet model for image embedding.
+    A UNet .model for image embedding.
     :param image_size: The size of the input image.
     :param in_channels: The number of input channels.
-    :param model_channels: The number of channels in the model.
+    :param model_channels: The number of channels in the .model.
     :param out_channels: The number of output channels.
-    :param num_res_blocks: The number of residual blocks in the model.
+    :param num_res_blocks: The number of residual blocks in the .model.
     :param attention_resolutions: A set of resolutions at which to apply attention.
     :param dropout: The dropout rate.
-    :param channel_mult: The channel multiplier for each level of the model.
+    :param channel_mult: The channel multiplier for each level of the .model.
     :param conv_resample: Whether to use convolutional resampling.
-    :param dims: The number of dimensions in the model.
+    :param dims: The number of dimensions in the .model.
     :param num_classes: The number of classes to predict.
     :param use_checkpoint: Whether to use checkpointing.
     :param use_fp16: Whether to use 16-bit floating point precision.
@@ -498,7 +498,7 @@ class UNetModel(nn.Module):
 
     def convert_to_fp16(self):
         """
-        Convert the model to 16-bit floating point precision.
+        Convert the .model to 16-bit floating point precision.
         """
         self.input_blocks.apply(convert_module_to_fp16)
         self.middle_block.apply(convert_module_to_fp16)
@@ -506,7 +506,7 @@ class UNetModel(nn.Module):
 
     def convert_to_fp32(self):
         """
-        Convert the model to 32-bit floating point precision.
+        Convert the .model to 32-bit floating point precision.
         """
         self.input_blocks.apply(convert_module_to_fp32)
         self.middle_block.apply(convert_module_to_fp32)
@@ -515,7 +515,7 @@ class UNetModel(nn.Module):
     def forward(self, x, timesteps=None, context=None, y=None, **kwargs):
         assert (y is not None) == (
             self.num_classes is not None
-        ), "Must provide y if and only if model is class-conditional"
+        ), "Must provide y if and only if .model is class-conditional"
         hs = []
         t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
         emb = self.time_embed(t_emb)

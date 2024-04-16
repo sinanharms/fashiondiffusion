@@ -15,6 +15,6 @@ st.sidebar.success("Welcome to FashionGen!")
 
 st.markdown(
     """
-    FashionGen is a generative model that can generate fashion images.
+    FashionGen is a generative .model that can generate fashion images.
     """
 )
