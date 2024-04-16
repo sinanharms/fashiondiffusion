@@ -23,7 +23,7 @@ from modules.utils import extract_into_tensor, noise_like
 
 
 def disable_train(self, mode=True):
-    """Overwrite model.train with this function to make sure train/eval mode
+    """Overwrite .model.train with this function to make sure train/eval mode
     does not change anymore."""
     return self
 
@@ -46,7 +46,7 @@ class LatentDiffusion(Diffusion):
     ):
         self.num_timesteps_cond = default(num_timesteps_cond, 1)
         self.scale_by_std = scale_by_std
-        assert self.num_timesteps_cond <= kwargs["num_timesteps"]
+        assert self.num_timesteps_cond <= kwargs["timesteps"]
         if conditioning_key is None:
             conditioning_key = "concat" if concat_mode else "crossattn"
         if cond_stage_config == "__is_unconditional__":
@@ -145,7 +145,7 @@ class LatentDiffusion(Diffusion):
                 logger.info("Using first stage also as cond stage.")
                 self.cond_stage_model = self.first_stage_model
             elif config == "__is_unconditional__":
-                logger.info(f"Training {self.__class__.__name__} unconditional model.")
+                logger.info(f"Training {self.__class__.__name__} unconditional .model.")
                 self.cond_stage_model = None
                 # self.be_unconditional = True
             else:
@@ -378,8 +378,8 @@ class LatentDiffusion(Diffusion):
                 z = unfold(z)
                 # 1. reshape to image size
                 z = z.view((z.shape[0], -1, ks[0], ks[1], z.shape[-1]))
-                # 2. apply model loop over last dim
-                # force quantized if vq model needed
+                # 2. apply .model loop over last dim
+                # force quantized if vq .model needed
                 output_list = [
                     self.first_stage_model.decode(z[:, :, :, :, i])
                     for i in range(z.shape[-1])
@@ -392,7 +392,7 @@ class LatentDiffusion(Diffusion):
                 decoded = fold(o) / normalization
                 return decoded
             else:
-                # force quantized if vq model needed
+                # force quantized if vq .model needed
                 return self.first_stage_model.decode(z)
         else:
             return self.first_stage_model.decode(z)
@@ -422,7 +422,7 @@ class LatentDiffusion(Diffusion):
                 z = unfold(x)
                 # 1. reshape to image size
                 z = z.view((z.shape[0], -1, ks[0], ks[1], z.shape[-1]))
-                # 2. apply model loop over last dim
+                # 2. apply .model loop over last dim
                 output_list = [
                     self.first_stage_model.encode(z[:, :, :, :, i])
                     for i in range(z.shape[-1])

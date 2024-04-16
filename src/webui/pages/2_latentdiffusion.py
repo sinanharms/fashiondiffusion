@@ -25,11 +25,6 @@ st.sidebar.success("Latent Diffusion")
 device = get_device()
 logger.info(f"Using device: {device}")
 
-config = OmegaConf.load("src/models/config.yaml")
-model: LatentDiffusion = load_model_from_config(config)
-
-model.to(device)
-
 
 def configure_sidebar():
     """
@@ -38,7 +33,7 @@ def configure_sidebar():
     with st.sidebar:
         st.info("Latent Diffusion")
         with st.form("configure_form"):
-            with st.expander("Configure the model"):
+            with st.expander("Configure the .model"):
                 width = st.number_input("Width", value=512)
                 height = st.number_input("Height", value=512)
                 num_outputs = st.slider(
@@ -98,6 +93,11 @@ def main_page(
     guidance_scale: float,
     prompt: str,
 ):
+    config = OmegaConf.load("src/config/txt2img.yaml")
+    ckpt = "src/.model/ldm/.model.ckpt"
+    model: LatentDiffusion = load_model_from_config(config, ckpt)
+
+    model.to(device)
     start_code = None
     if submitted:
         with st.status("Generating images...", expanded=True) as status:
@@ -201,6 +201,7 @@ def main():
         sampling,
         num_inference_steps,
         num_iter,
+        ddim_eta,
         guidance_scale,
         prompt,
     )

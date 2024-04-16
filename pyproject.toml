@@ -29,4 +29,5 @@ build-backend = "setuptools.build_meta"
 [tool.pdm.dev-dependencies]
 dev = [
     "black>=24.4.0",
+    "pre-commit>=3.7.0",
 ]

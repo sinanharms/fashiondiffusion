@@ -138,6 +138,7 @@ dmypy.json
 
 # large dataset files
 /fashiongen
+.model
 
 # pdm files
 pdm.lock

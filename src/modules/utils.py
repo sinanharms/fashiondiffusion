@@ -156,7 +156,7 @@ def numpy_to_pil(array):
 
 def count_params(model, verbose=False):
     """
-    Count the number of parameters in a model.
+    Count the number of parameters in a .model.
     """
     num_params = sum(p.numel() for p in model.parameters())
     if verbose:
@@ -185,15 +185,15 @@ def instantiate_from_config(config):
 
 def load_model_from_config(config, ckpt_path=None, verbose=False):
     """
-    Load a model from a configuration dictionary.
+    Load a .model from a configuration dictionary.
     """
-    logger.info(f"Instantiating model from config: {config}")
-    logger.info("Loading model from checkpoint: {ckpt_path}")
-    model = instantiate_from_config(config)
+    logger.info(f"Instantiating .model from config: {config}")
+    logger.info(f"Loading .model from checkpoint: {ckpt_path}")
     pl_sd = torch.load(ckpt_path, map_location="cpu")
     if "global_step" in pl_sd:
         logger.info(f"Global Step: {pl_sd['global_step']}")
     state_dict = pl_sd["state_dict"]
+    model = instantiate_from_config(config.model)
     m, u = model.load_state_dict(state_dict, strict=False)
     if len(m) > 0 and verbose:
         logger.info(f"Missing keys: {m}")
