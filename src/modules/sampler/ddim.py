@@ -3,7 +3,7 @@ import torch
 from loguru import logger
 from tqdm import tqdm
 
-from src.modules.utils import extract_into_tensor, get_device, noise_like
+from modules.utils import extract_into_tensor, get_device, noise_like
 
 
 def make_ddim_schedule(ddim_discr_method, num_ddim_steps, num_ddpm_steps, verbose=True):

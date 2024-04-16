@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 import streamlit as st
 
-from src.data.fashiongen import FashionGenDataset
+from data.fashiongen import FashionGenDataset
 
 datapath = (
     Path(__file__).parent.parent.parent.parent

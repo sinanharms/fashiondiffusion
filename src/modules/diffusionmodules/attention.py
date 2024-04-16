@@ -3,7 +3,7 @@ import math
 import torch
 from torch import nn
 
-from src.modules.utils import checkpoint, conv_nd, normalization, zero_module
+from modules.utils import checkpoint, conv_nd, normalization, zero_module
 
 
 class AttentionPool2D(nn.Module):

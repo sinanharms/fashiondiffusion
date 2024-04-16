@@ -14,9 +14,9 @@ from torchvision.utils import make_grid
 from tqdm import trange
 
 from modules.ldm.latentdiffusion import LatentDiffusion
-from src.modules.sampler.ddim import DDIMSampler
-from src.modules.sampler.plms import PLMSSampler
-from src.modules.utils import get_device, load_model_from_config
+from modules.sampler.ddim import DDIMSampler
+from modules.sampler.plms import PLMSSampler
+from modules.utils import get_device, load_model_from_config
 
 LATENT_CHANNELS: int = 4
 
@@ -25,7 +25,7 @@ st.sidebar.success("Latent Diffusion")
 device = get_device()
 logger.info(f"Using device: {device}")
 
-config = OmegaConf.load("configs/latent_diffusion.yaml")
+config = OmegaConf.load("src/models/config.yaml")
 model: LatentDiffusion = load_model_from_config(config)
 
 model.to(device)
@@ -50,6 +50,9 @@ def configure_sidebar():
                 )
                 num_inference_steps = st.slider(
                     "Number of inference steps", min_value=1, max_value=1000, value=50
+                )
+                ddim_eta = st.slider(
+                    "Eta for DDIM", min_value=0.0, max_value=1.0, value=0.0
                 )
                 guidance_scale = st.slider(
                     "Scale for classifier free guidance",
@@ -77,6 +80,7 @@ def configure_sidebar():
         sampling,
         num_inference_steps,
         num_iter,
+        ddim_eta,
         guidance_scale,
         prompt,
     )
@@ -90,6 +94,7 @@ def main_page(
     sampling: str,
     num_inference_steps: int,
     num_iter: int,
+    ddim_eta: float,
     guidance_scale: float,
     prompt: str,
 ):
@@ -108,7 +113,7 @@ def main_page(
                     with model.ema_scope():
                         tic = time.time()
                         all_samples = list()
-                        for n in trange(num_iter, desc="Generating samples"):
+                        for _ in trange(num_iter, desc="Generating samples"):
                             uc = None
                             if guidance_scale != 1.0:
                                 uc = model.get_learned_conditioning(num_outputs * [""])
@@ -184,6 +189,7 @@ def main():
         sampling,
         num_inference_steps,
         num_iter,
+        ddim_eta,
         guidance_scale,
         prompt,
     ) = configure_sidebar()

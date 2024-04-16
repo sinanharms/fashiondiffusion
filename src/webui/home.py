@@ -6,7 +6,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
-if "shared" is not st.session_state:
+if "shared" != st.session_state:
     st.session_state["shared"] = True
 
 

@@ -12,8 +12,8 @@ from torch import nn
 from torchvision.utils import make_grid
 from tqdm import tqdm
 
-from src.modules.ema import EMA
-from src.modules.utils import (
+from modules.ema import EMA
+from modules.utils import (
     count_params,
     default,
     extract_into_tensor,

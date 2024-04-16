@@ -5,9 +5,9 @@ import torch
 from loguru import logger
 from tqdm import tqdm
 
-from src.modules.ldm.latentdiffusion import LatentDiffusion
-from src.modules.sampler.ddim import make_ddim_sampling_parameters, make_ddim_schedule
-from src.modules.utils import noise_like
+from modules.ldm.latentdiffusion import LatentDiffusion
+from modules.sampler.ddim import make_ddim_sampling_parameters, make_ddim_schedule
+from modules.utils import noise_like
 
 
 class PLMSSampler:

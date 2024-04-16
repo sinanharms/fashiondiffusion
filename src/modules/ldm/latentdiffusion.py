@@ -11,15 +11,15 @@ from torch.optim.lr_scheduler import LambdaLR
 from torchvision.utils import make_grid
 from tqdm import tqdm
 
-from src.modules.diffusionmodules.diagonalgaussian import DiagonalGaussian
-from src.modules.encoders.vae import SimpleVAE
-from src.modules.ldm.diffusion import Diffusion, __conditioning_keys__
-from src.modules.utils import default, instantiate_from_config
+from modules.diffusionmodules.diagonalgaussian import DiagonalGaussian
+from modules.encoders.vae import SimpleVAE
+from modules.ldm.diffusion import Diffusion, __conditioning_keys__
+from modules.utils import default, instantiate_from_config
 
 __cond_stage_keys__ = ["image", "LR_image", "segmentation", "bbox_img"]
 
-from src.modules.sampler.ddim import DDIMSampler
-from src.modules.utils import extract_into_tensor, noise_like
+from modules.sampler.ddim import DDIMSampler
+from modules.utils import extract_into_tensor, noise_like
 
 
 def disable_train(self, mode=True):
