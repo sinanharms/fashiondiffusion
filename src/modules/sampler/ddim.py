@@ -153,7 +153,7 @@ class DDIMSampler(object):
                     )
 
         self.make_schedule(ddim_num_steps=S, ddim_eta=eta, verbose=verbose)
-        # sample from the .model
+        # sample from the model
         C, H, W = shape
         size = (batch_size, C, H, W)
         logger.info(

@@ -2,6 +2,9 @@ import clip
 import torch
 import torch.nn as nn
 from einops import repeat
+from transformers import CLIPTextModel, CLIPTokenizer
+
+from modules.utils import get_device
 
 
 class TextEmbedder(nn.Module):
@@ -17,50 +20,41 @@ class TextEmbedder(nn.Module):
 
 class ClipTextEmbedder(TextEmbedder):
     """
-    A wrapper around OpenAI's CLIP .model for text embedding.
+    A wrapper around OpenAI's CLIP model for text embedding.
     """
 
     def __init__(
         self,
         version,
-        device="cuda",
         max_length=77,
-        n_repeat=1,
-        normalize=True,
         pretrained_weights=None,
     ):
         super().__init__()
-        self.model, _ = clip.load(version, jit=False, device="cpu")
-        self.device = device
+        self.tokenizer = CLIPTokenizer.from_pretrained(version)
+        self.transformer = CLIPTextModel.from_pretrained(version)
+        self.device = get_device()
         self.max_length = max_length
-        self.n_repeat = n_repeat
-        self.normalize = normalize
-
-        if pretrained_weights:
-            self.model.load_state_dict(
-                torch.load(pretrained_weights, map_location="cpu")
-            )
+        self.freeze()
 
     def freeze(self):
-        self.model = self.model.eval()
-        for p in self.model.parameters():
-            p.requires_grad = False
-
-    def unfreeze(self):
-        self.model = self.model.train()
-        for p in self.model.parameters():
-            p.requires_grad = True
+        self.transformer = self.transformer.eval()
+        for param in self.parameters():
+            param.requires_grad = False
 
     def forward(self, text):
-        tokens = clip.tokenize(text).to(self.device)
-        z = self.model.encode_text(tokens)
-        if self.normalize:
-            z = z / torch.linalg.norm(z, dim=1, keepdim=True)
+        batch_encoding = self.tokenizer(
+            text,
+            truncation=True,
+            max_length=self.max_length,
+            return_length=True,
+            return_overflowing_tokens=False,
+            padding="max_length",
+            return_tensors="pt",
+        )
+        tokens = batch_encoding["input_ids"].to(self.device)
+        outputs = self.transformer(input_ids=tokens)
+        z = outputs.last_hidden_state
         return z
 
     def encode(self, text):
-        z = self(text)
-        if z.ndim == 2:
-            z = z[:, None, :]
-        z = repeat(z, "b 1 d -> b k d", k=self.n_repeat)
-        return z
+        return self(text)

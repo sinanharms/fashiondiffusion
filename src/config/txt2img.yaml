@@ -68,3 +68,5 @@ model:
 
     cond_stage_config:
       target: modules.encoders.textembedder.ClipTextEmbedder
+      params:
+        version: "openai/clip-vit-large-patch14"
