@@ -12,7 +12,7 @@ from torchvision.utils import make_grid
 from tqdm import tqdm
 
 from modules.diffusionmodules.diagonalgaussian import DiagonalGaussian
-from modules.encoders.vae import SimpleVAE
+from modules.encoders.autoencoder import AutoEncoder
 from modules.ldm.diffusion import Diffusion, __conditioning_keys__
 from modules.utils import default, instantiate_from_config
 
@@ -916,7 +916,9 @@ class LatentDiffusion(Diffusion):
             if plot_denoise_rows:
                 denoise_grid = self._get_denoise_row_from_list(z_denoise_row)
                 log["denoised"] = denoise_grid
-            if quantize_denoised and not isinstance(self.first_stage_model, SimpleVAE):
+            if quantize_denoised and not isinstance(
+                self.first_stage_model, AutoEncoder
+            ):
                 with self.ema_scope("Plotting quantized"):
                     samples, z_denoise_row = self.sample_log(
                         cond=c,
