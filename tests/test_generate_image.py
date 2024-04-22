@@ -22,8 +22,8 @@ if __name__ == "__main__":
     num_outputs = 1
     num_inference_steps = 50
     ddim_eta = 0.0
-    height = 512
-    width = 512
+    height = 64
+    width = 64
 
     model: LatentDiffusion = load_model_from_config(config, ckpt)
     model.to(device)

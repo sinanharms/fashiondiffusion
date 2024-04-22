@@ -19,11 +19,23 @@ from modules.utils import (
 
 
 def convert_module_to_fp16(x):
-    pass
+    """
+    Convert a module to 16-bit floating point precision.
+    """
+    if isinstance(x, (nn.Conv1d, nn.Conv2d, nn.Conv3d)):
+        x.weight.data = x.weight.data.half()
+        if x.bias is not None:
+            x.bias.data = x.bias.data.half()
 
 
 def convert_module_to_fp32(x):
-    pass
+    """
+    Convert a module to 32-bit floating point precision.
+    """
+    if isinstance(x, (nn.Conv1d, nn.Conv2d, nn.Conv3d)):
+        x.weight.data = x.weight.data.float()
+        if x.bias is not None:
+            x.bias.data = x.bias.data.float()
 
 
 class TimestepBlock(nn.Module):
@@ -243,12 +255,11 @@ class UNetModel(nn.Module):
         num_classes=None,
         use_checkpoint: bool = False,
         use_fp16: bool = False,
-        num_heads: int = -1,
+        num_heads: int = 1,
         num_head_channels: int = -1,
         num_heads_upsample: int = -1,
         use_scale_shift_norm: bool = False,
         resblock_updown: bool = False,
-        use_new_attention_order: bool = False,
         use_spatial_transformer: bool = True,
         transformer_depth: int = 1,
         context_dim: int = 640,
@@ -305,16 +316,12 @@ class UNetModel(nn.Module):
         if self.num_classes is not None:
             self.class_embed = nn.Embedding(self.num_classes, time_embed_dim)
 
+        ch = input_ch = int(model_channels * channel_mult[0])
         self.input_blocks = nn.ModuleList(
-            [
-                TimestepEmbedSequential(
-                    conv_nd(dims, in_channels, model_channels, 3, padding=1)
-                )
-            ]
+            [TimestepEmbedSequential(conv_nd(dims, in_channels, ch, 3, padding=1))]
         )
-        self._feature_size = model_channels
-        input_block_channels = [model_channels]
-        ch = model_channels
+        self._feature_size = ch
+        input_block_channels = [ch]
         ds = 1
         for level, mult in enumerate(channel_mult):
             for _ in range(num_res_blocks):
@@ -329,7 +336,7 @@ class UNetModel(nn.Module):
                         use_scale_shift_norm=use_scale_shift_norm,
                     )
                 ]
-                ch = mult * model_channels
+                ch = int(mult * model_channels)
                 if ds in attention_resolutions:
                     if num_heads == -1:
                         dim_head = ch // num_head_channels
@@ -348,7 +355,6 @@ class UNetModel(nn.Module):
                             use_checkpoint=use_checkpoint,
                             num_heads=num_heads,
                             num_head_channels=dim_head,
-                            use_new_attention_order=use_new_attention_order,
                         )
                         if not use_spatial_transformer
                         else SpatialTransformer(
@@ -401,20 +407,21 @@ class UNetModel(nn.Module):
                 use_checkpoint=use_checkpoint,
                 use_scale_shift_norm=use_scale_shift_norm,
             ),
-            AttentionBlock(
-                ch,
-                use_checkpoint=use_checkpoint,
-                num_heads=num_heads,
-                num_head_channels=dim_head,
-                use_new_attention_order=use_new_attention_order,
-            )
-            if not use_spatial_transformer
-            else SpatialTransformer(
-                ch,
-                num_heads,
-                dim_head,
-                depth=transformer_depth,
-                context_dim=context_dim,
+            (
+                AttentionBlock(
+                    ch,
+                    use_checkpoint=use_checkpoint,
+                    num_heads=num_heads,
+                    num_head_channels=dim_head,
+                )
+                if not use_spatial_transformer
+                else SpatialTransformer(
+                    ch,
+                    num_heads,
+                    dim_head,
+                    depth=transformer_depth,
+                    context_dim=context_dim,
+                )
             ),
             ResBlock(
                 ch,
@@ -461,7 +468,6 @@ class UNetModel(nn.Module):
                             use_checkpoint=use_checkpoint,
                             num_heads=num_heads,
                             num_head_channels=dim_head,
-                            use_new_attention_order=use_new_attention_order,
                         )
                         if not use_spatial_transformer
                         else SpatialTransformer(
@@ -493,7 +499,7 @@ class UNetModel(nn.Module):
             self.out = nn.Sequential(
                 normalization(ch),
                 nn.SiLU(),
-                zero_module(conv_nd(dims, ch, out_channels, 3, padding=1)),
+                zero_module(conv_nd(dims, input_ch, out_channels, 3, padding=1)),
             )
 
     def convert_to_fp16(self):

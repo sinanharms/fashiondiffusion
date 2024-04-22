@@ -171,7 +171,7 @@ class SpatialTransformer(nn.Module):
                     dropout=dropout,
                     context_dim=context_dim,
                 )
-                for d in range(depth)
+                for _ in range(depth)
             ]
         )
 

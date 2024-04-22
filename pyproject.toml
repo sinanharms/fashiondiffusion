@@ -17,6 +17,7 @@ dependencies = [
     "h5py>=3.11.0",
     "pytorch-lightning>=2.2.2",
     "transformers>=4.40.0",
+    "taming-transformers>=0.0.1",
 ]
 requires-python = ">=3.11"
 readme = "README.md"
