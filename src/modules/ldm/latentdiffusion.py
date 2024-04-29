@@ -68,7 +68,7 @@ class LatentDiffusion(Diffusion):
         self.instantiate_first_stage(first_stage_config)
         self.instantiate_cond_stage(cond_stage_config)
         self.cond_stage_forward = cond_stage_forward
-        self.clip_denosied = False
+        self.clip_denoised = False
         self.bbox_tokenizer = None
 
         self.restart_from_ckpt = False
@@ -236,63 +236,6 @@ class LatentDiffusion(Diffusion):
             weighting = weighting * L_weighting
         return weighting
 
-    def get_fold_unfold(self, x, kernel_size, stride, uf=1, df=1):
-        bs, nc, h, w = x.shape
-
-        # number of crops per image
-        Ly = (h - kernel_size[0]) // stride[0] + 1
-        Lx = (w - kernel_size[1]) // stride[1] + 1
-
-        unfold_params = dict(
-            kernel_size=kernel_size, dilation=1, padding=1, stride=stride
-        )
-        unfold = torch.nn.Unfold(**unfold_params)
-        if uf == 1 and df == 1:
-            fold = torch.nn.Fold(output_size=x[2:], **unfold_params)
-            weighting = self.get_weighting(
-                kernel_size[0], kernel_size[1], Ly, Lx, x.device
-            ).to(x.dtype)
-            normalization = fold(weighting).view(1, 1, h, w)
-            weighting = weighting.view((1, 1, kernel_size[0], kernel_size[1], Ly * Lx))
-        elif uf > 1 and df == 1:
-            fold_params = dict(
-                kernel_size=(kernel_size[0] * uf, kernel_size[1] * uf),
-                dilation=1,
-                padding=1,
-                stride=(stride[0] * uf, stride[1] * uf),
-            )
-            fold = torch.nn.Fold(
-                output_size=(x.shape[2] * uf, x.shape[3] * uf), **fold_params
-            )
-            weighting = self.get_weighting(
-                kernel_size[0] * uf, kernel_size[1] * uf, Ly, Lx, x.device
-            ).to(x.dtype)
-            normalization = fold(weighting).view(1, 1, h * uf, w * uf)
-            weighting = weighting.view(
-                (1, 1, kernel_size[0] * uf, kernel_size[1] * uf, Ly * Lx)
-            )
-        elif uf == 1 and df > 1:
-            fold_params = dict(
-                kernel_size=(kernel_size[0] // df, kernel_size[1] // df),
-                dilation=1,
-                padding=0,
-                stride=stride,
-            )
-            fold = torch.nn.Fold(
-                output_size=(x.shape[2] // df, x.shape[3] // df), **fold_params
-            )
-            weighting = self.get_weighting(
-                kernel_size[0] // df, kernel_size[1] // df, Ly, Lx, x.device
-            ).to(x.dtype)
-            normalization = fold(weighting).view(1, 1, h // df, w // df)
-            weighting = weighting.view(
-                (1, 1, kernel_size[0] // df, kernel_size[1] // df, Ly * Lx)
-            )
-        else:
-            raise NotImplementedError
-
-        return fold, unfold, normalization, weighting
-
     @torch.no_grad()
     def get_input(
         self,
@@ -353,91 +296,13 @@ class LatentDiffusion(Diffusion):
         return out
 
     @torch.no_grad()
-    def decode_first_stage(self, z, force_not_quantized=False):
+    def first_stage_decode(self, z):
         z = 1.0 / self.scale_factor * z
-        if hasattr(self, "split_input_params"):
-            if self.split_input_params["patch_distributed_vq"]:
-                ks = self.split_input_params["ks"]
-                stride = self.split_input_params["stride"]
-                uf = self.split_input_params["vqf"]
-                bs, nc, h, w = z.shape
-                if ks[0] > h or ks[1] > w:
-                    logger.warning(
-                        "Warning: kernel size is larger than image size. \n Reducing kernel..."
-                    )
-                    ks = (min(ks[0], h), min(ks[1], w))
-                if stride[0] > h or stride[1] > w:
-                    logger.warning(
-                        "Warning: stride is larger than image size. \n Reducing stride..."
-                    )
-                    stride = (min(stride[0], h), min(stride[1], w))
-
-                fold, unfold, normalization, weighting = self.get_fold_unfold(
-                    z, ks, stride, uf=uf
-                )
-                z = unfold(z)
-                # 1. reshape to image size
-                z = z.view((z.shape[0], -1, ks[0], ks[1], z.shape[-1]))
-                # 2. apply .model loop over last dim
-                # force quantized if vq .model needed
-                output_list = [
-                    self.first_stage_model.decode(z[:, :, :, :, i])
-                    for i in range(z.shape[-1])
-                ]
-                o = torch.stack(output_list, axis=-1)
-                o = o * weighting
-                # reverse 1. reshape to image size
-                o = o.view((o.shape[0], -1, o.shape[-1]))
-                # stitch together
-                decoded = fold(o) / normalization
-                return decoded
-            else:
-                # force quantized if vq .model needed
-                return self.first_stage_model.decode(z)
-        else:
-            return self.first_stage_model.decode(z)
+        return self.first_stage_model.decode(z)
 
     @torch.no_grad()
-    def encode_first_stage(self, x):
-        if hasattr(self, "split_input_params"):
-            if self.split_input_params["patch_distributed_vq"]:
-                ks = self.split_input_params["ks"]
-                stride = self.split_input_params["stride"]
-                df = self.split_input_params["vqf"]
-                self.split_input_params["original_image_size"] = x.shape[-2:]
-                bs, nc, h, w = x.shape
-                if ks[0] > h or ks[1] > w:
-                    logger.warning(
-                        "Warning: kernel size is larger than image size. \n Reducing kernel..."
-                    )
-                    ks = (min(ks[0], h), min(ks[1], w))
-                if stride[0] > h or stride[1] > w:
-                    logger.warning(
-                        "Warning: stride is larger than image size. \n Reducing stride..."
-                    )
-                    stride = (min(stride[0], h), min(stride[1], w))
-                fold, unfold, normalization, weighting = self.get_fold_unfold(
-                    x, ks, stride, df=df
-                )
-                z = unfold(x)
-                # 1. reshape to image size
-                z = z.view((z.shape[0], -1, ks[0], ks[1], z.shape[-1]))
-                # 2. apply .model loop over last dim
-                output_list = [
-                    self.first_stage_model.encode(z[:, :, :, :, i])
-                    for i in range(z.shape[-1])
-                ]
-                o = torch.stack(output_list, axis=-1)
-                o = o * weighting
-                # reverse 1. reshape to image size
-                o = o.view((o.shape[0], -1, o.shape[-1]))
-                # stitch together
-                encoded = fold(o) / normalization
-                return encoded
-            else:
-                return self.first_stage_model.encode(x)
-        else:
-            return self.first_stage_model.encode(x)
+    def first_stage_encode(self, x):
+        return self.first_stage_model.encode(x)
 
     def shared_step(self, batch):
         x, c = self.get_input(batch, self.first_stage_key)
@@ -462,40 +327,7 @@ class LatentDiffusion(Diffusion):
             )
             cond = {key: cond}
 
-        if hasattr(self, "split_input_params"):
-            assert len(cond) == 1
-            ks = self.split_input_params["ks"]
-            stride = self.split_input_params["stride"]
-            h, w = x_noisy.shape[-2:]
-            fold, unfold, normalization, weighting = self.get_fold_unfold(
-                x_noisy, ks, stride
-            )
-            z = unfold(x_noisy)
-            z = z.view((z.shape[0], -1, ks[0], ks[1], z.shape[-1]))
-            z_list = [z[:, :, :, :, i] for i in range(z.shape[-1])]
-            if (
-                self.cond_stage_key in __cond_stage_keys__
-                and self.model.conditioning_key
-            ):
-                c_key = next(iter(cond.keys()))
-                c = next(iter(cond.values()))
-                assert len(c) == 1
-                c = c[0]
-                c = unfold(c)
-                c = c.view((c.shape[0], -1, ks[0], ks[1], c.shape[-1]))
-                cond_list = [{c_key: c[:, :, :, :, i] for i in range(c.shape[-1])}]
-            else:
-                cond_list = [cond for _ in range(z.shape[-1])]
-            output_list = [
-                self.model(z_list[i], t, **cond_list[i]) for i in range(z.shape[-1])
-            ]
-            assert not isinstance(output_list[0], tuple)
-            o = torch.stack(output_list, axis=-1)
-            o = o * weighting
-            o = o.view((o.shape[0], -1, o.shape[-1]))
-            x_recon = fold(o) / normalization
-        else:
-            x_recon = self.model(x_noisy, t, **cond)
+        x_recon = self.model(x_noisy, t, **cond)
 
         if isinstance(x_recon, tuple):
             x_recon = x_recon[0]

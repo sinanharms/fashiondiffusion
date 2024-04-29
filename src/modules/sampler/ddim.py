@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from loguru import logger
+from torch import nn
 from tqdm import tqdm
 
 from modules.utils import extract_into_tensor, get_device, noise_like
@@ -38,7 +39,7 @@ def make_ddim_sampling_parameters(alpha_prods, ddim_timesteps, eta, verbose=True
     return sigma, alphas, alphas_prev
 
 
-class DDIMSampler(object):
+class DDIMSampler(nn.Module):
     def __init__(self, model, schedule="linear", **kwargs):
         super().__init__()
         self.model = model
@@ -46,12 +47,6 @@ class DDIMSampler(object):
         self.schedule = schedule
 
         self.device = self.model.device if self.model.device else get_device()
-
-    def register_buffer(self, name, attr):
-        if isinstance(type(attr), torch.Tensor):
-            if attr.device != self.device:
-                attr = attr.to(self.device)
-        setattr(self, name, attr)
 
     def make_schedule(
         self, ddim_num_steps, ddim_discretize="uniform", ddim_eta=0.0, verbose=True
@@ -101,10 +96,12 @@ class DDIMSampler(object):
             eta=ddim_eta,
             verbose=verbose,
         )
-        self.register_buffer("ddim_sigmas", ddim_sigmas)
-        self.register_buffer("ddim_alphas", ddim_alphas)
-        self.register_buffer("ddim_alphas_prev", ddim_alphas_prev)
-        self.register_buffer("ddim_sqrt_one_minus_alphas", np.sqrt(1.0 - ddim_alphas))
+        self.register_buffer("ddim_sigmas", to_torch(ddim_sigmas))
+        self.register_buffer("ddim_alphas", to_torch(ddim_alphas))
+        self.register_buffer("ddim_alphas_prev", to_torch(ddim_alphas_prev))
+        self.register_buffer(
+            "ddim_sqrt_one_minus_alphas", to_torch(np.sqrt(1.0 - ddim_alphas))
+        )
         sigmas_for_original_sampling_step = ddim_eta * torch.sqrt(
             (1 - self.alphas_cumprod_prev)
             / (1 - self.alphas_cumprod)

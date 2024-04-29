@@ -3,6 +3,7 @@ from functools import partial
 import numpy as np
 import torch
 from loguru import logger
+from torch import nn
 from tqdm import tqdm
 
 from modules.ldm.latentdiffusion import LatentDiffusion
@@ -10,18 +11,12 @@ from modules.sampler.ddim import make_ddim_sampling_parameters, make_ddim_schedu
 from modules.utils import noise_like
 
 
-class PLMSSampler:
+class PLMSSampler(nn.Module):
     def __init__(self, model: LatentDiffusion, schedule="linear", **kwargs):
         super().__init__()
         self.model = model
         self.num_timesteps = model.num_timesteps
         self.schedule = schedule
-
-    def register_buffer(self, name, attr):
-        if isinstance(attr, torch.Tensor):
-            if attr.device != self.model.device:
-                attr = attr.to(self.model.device)
-        setattr(self, name, attr)
 
     def make_schedule(
         self, ddim_num_steps, ddim_discretize="uniform", ddim_eta=0.0, verbose=True
