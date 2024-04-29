@@ -23,6 +23,7 @@ class AutoEncoder(pl.LightningModule):
         image_key="image",
         colorize_nlabels=None,
         monitor=None,
+        use_tiling=False,
         **kwargs,
     ):
         super().__init__()
@@ -38,6 +39,7 @@ class AutoEncoder(pl.LightningModule):
         self.embedding_dim = emb_dim
         self.tile_size = tile_size
         self.overlap_ratio = overlap_ratio
+        self.use_tiling = use_tiling
         if colorize_nlabels is not None:
             assert isinstance(colorize_nlabels, int)
             self.register_buffer("colorize", torch.randn(3, colorize_nlabels, 1, 1))
@@ -58,12 +60,16 @@ class AutoEncoder(pl.LightningModule):
         logger.info(f"Restored model from {ckpt_path}")
 
     def encode(self, z):
+        if self.use_tiling:
+            return self.tiled_encode(z)
         h = self.encoder(z)
         moments = self.quant_conv(h)
         posterior = DiagonalGaussian(moments)
         return posterior
 
     def decode(self, z):
+        if self.use_tiling:
+            return self.tiled_decode(z)
         z = self.post_quant_conv(z)
         dec = self.decoder(z)
         return dec
