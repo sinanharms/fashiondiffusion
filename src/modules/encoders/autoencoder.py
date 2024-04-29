@@ -6,6 +6,7 @@ from loguru import logger
 from pytorch_lightning.utilities.types import OptimizerLRScheduler
 
 from modules.diffusionmodules.diagonalgaussian import DiagonalGaussian
+from modules.diffusionmodules.models import Decoder, Encoder
 from modules.utils import instantiate_from_config
 
 
@@ -16,13 +17,17 @@ class AutoEncoder(pl.LightningModule):
         lossconfig,
         emb_dim,
         ckpt_path,
-        ignore_keys=[],
+        tile_size=32,
+        overlap_ratio=0.25,
+        ignore_keys=None,
         image_key="image",
         colorize_nlabels=None,
         monitor=None,
         **kwargs,
     ):
         super().__init__()
+        if ignore_keys is None:
+            ignore_keys = []
         self.image_key = image_key
         self.encoder = Encoder(**config)
         self.decoder = Decoder(**config)
@@ -31,6 +36,8 @@ class AutoEncoder(pl.LightningModule):
         self.quant_conv = nn.Conv2d(2 * config["z_channels"], 2 * emb_dim, 1)
         self.post_quant_conv = nn.Conv2d(emb_dim, config["z_channels"], 1)
         self.embedding_dim = emb_dim
+        self.tile_size = tile_size
+        self.overlap_ratio = overlap_ratio
         if colorize_nlabels is not None:
             assert isinstance(colorize_nlabels, int)
             self.register_buffer("colorize", torch.randn(3, colorize_nlabels, 1, 1))
@@ -59,6 +66,79 @@ class AutoEncoder(pl.LightningModule):
     def decode(self, z):
         z = self.post_quant_conv(z)
         dec = self.decoder(z)
+        return dec
+
+    def blend_h(self, row, tile, blend_extend):
+        blend_extend = min(row.shape[3], tile.shape[3], blend_extend)
+        for x in range(blend_extend):
+            tile[:, :, :, x] = row[:, :, :, -blend_extend + x] * (
+                1 - x / blend_extend
+            ) + tile[:, :, :, x] * (x / blend_extend)
+        return tile
+
+    def blend_v(self, row, tile, blend_extend):
+        blend_extend = min(row.shape[2], tile.shape[2], blend_extend)
+        for y in range(blend_extend):
+            tile[:, :, y, :] = row[:, :, -blend_extend + y, :] * (
+                1 - y / blend_extend
+            ) + tile[:, :, y, :] * (y / blend_extend)
+        return tile
+
+    def tiled_encode(self, z):
+        overlap_size = int(self.tile_size * (1 - self.overlap_ratio))
+        blend_extend = int(self.tile_size * self.overlap_ratio)
+        row_limit = self.tile_size - blend_extend
+
+        rows = list()
+        for i in range(0, z.shape[2], overlap_size):
+            row = list()
+            for j in range(0, z.shape[3], overlap_size):
+                z_tile = z[:, :, i : i + self.tile_size, j : j + self.tile_size]
+                tile = self.encode(z_tile)
+                tile = self.quant_conv(tile)
+                row.append(tile)
+            rows.append(row)
+        result_rows = list()
+        for i, row in enumerate(rows):
+            result_row = list()
+            for j, tile in enumerate(row):
+                if i > 0:
+                    tile = self.blend_v(rows[i - 1][j], tile, blend_extend)
+                if j > 0:
+                    tile = self.blend_h(row[j - 1], tile, blend_extend)
+                result_row.append(tile[:, :, :row_limit, :row_limit])
+            result_rows.append(torch.cat(result_row, dim=3))
+
+        moments = torch.cat(result_rows, dim=2)
+        posterior = DiagonalGaussian(moments)
+        return posterior
+
+    def tiled_decode(self, z):
+        overlap_size = int(self.tile_size * (1 - self.overlap_ratio))
+        blend_extend = int(self.tile_size * self.overlap_ratio)
+        row_limit = self.tile_size - blend_extend
+
+        rows = list()
+        for i in range(0, z.shape[2], overlap_size):
+            row = list()
+            for j in range(0, z.shape[3], overlap_size):
+                z_tile = z[:, :, i : i + self.tile_size, j : j + self.tile_size]
+                self.post_quant_conv(z_tile)
+                tile = self.decode(z_tile)
+                row.append(tile)
+            rows.append(row)
+        result_rows = list()
+        for i, row in enumerate(rows):
+            result_row = list()
+            for j, tile in enumerate(row):
+                if i > 0:
+                    tile = self.blend_v(rows[i - 1][j], tile, blend_extend)
+                if j > 0:
+                    tile = self.blend_h(row[j - 1], tile, blend_extend)
+                result_row.append(tile[:, :, :row_limit, :row_limit])
+            result_rows.append(torch.cat(result_row, dim=3))
+
+        dec = torch.cat(result_rows, dim=2)
         return dec
 
     def forward(self, x, sample_posterior=True):
