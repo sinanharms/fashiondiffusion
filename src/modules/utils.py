@@ -149,7 +149,10 @@ def numpy_to_pil(array):
         array = array[None, ...]
 
     image = (array * 255).round().astype("uint8")
-    pil_images = [Image.fromarray(img) for img in image]
+    if image.shape[-1] == 1:
+        pil_images = [Image.fromarray(img.squeeze(), mode="L") for img in image]
+    else:
+        pil_images = [Image.fromarray(img) for img in image]
 
     return pil_images
 
@@ -174,7 +177,7 @@ def instantiate_from_config(config):
     """
     Instantiate a class from a configuration dictionary.
     """
-    if not "target" in config:
+    if "target" not in config:
         if config == "__is_first_stage__":
             return None
         elif config == "__is_unconditional__":

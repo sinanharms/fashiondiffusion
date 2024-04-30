@@ -224,12 +224,13 @@ class Decoder(nn.Module):
         tanh_out=False,
         **ignorekwargs,
     ):
-        super.__init__()
+        super().__init__()
         self.ch = ch
         self.temb_ch = 0
         self.num_resolutions = len(ch_mult)
         self.num_res_blocks = num_res_blocks
         self.resolution = resolution
+        self.in_channels = in_channels
         self.give_pre_end = give_pre_end
         self.tanh_out = tanh_out
 
@@ -241,20 +242,22 @@ class Decoder(nn.Module):
         logger.info(f"z_shape: {self.z_shape} with dimension {np.prod(self.z_shape)}")
 
         # z to block in
-        self.conv_in = nn.Conv2d(z_channels, block_in, 3, stride=1, padding=1)
+        self.conv_in = nn.Conv2d(
+            z_channels, block_in, kernel_size=3, stride=1, padding=1
+        )
         # middle
         self.middle = nn.Module()
         self.middle.block_1 = ResnetBlock(
             in_channels=block_in,
             out_channels=block_in,
-            temb_channels=self.temp_ch,
+            temb_channels=self.temb_ch,
             dropout=dropout,
         )
         self.middle.attn = AttentionBlock(block_in)
         self.middle.block_2 = ResnetBlock(
             in_channels=block_in,
             out_channels=block_in,
-            temb_channels=self.temp_ch,
+            temb_channels=self.temb_ch,
             dropout=dropout,
         )
 
@@ -269,7 +272,7 @@ class Decoder(nn.Module):
                     ResnetBlock(
                         in_channels=block_in,
                         out_channels=block_out,
-                        temb_channels=self.temp_ch,
+                        temb_channels=self.temb_ch,
                         dropout=dropout,
                     )
                 )
@@ -286,7 +289,7 @@ class Decoder(nn.Module):
 
         # end
         self.norm_out = Normalize(block_in)
-        self.conv_out = nn.Conv2d(block_in, out_ch, 3, stride=1, padding=1)
+        self.conv_out = nn.Conv2d(block_in, out_ch, kernel_size=3, stride=1, padding=1)
 
     def forward(self, z):
         self.last_z_shape = z.shape
