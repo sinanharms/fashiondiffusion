@@ -1,12 +1,23 @@
 import h5py
 import torch
 import torchvision.transforms as T
-from torch.utils.data import Dataset, Subset
+from pytorch_lightning import LightningDataModule
+from torch.utils.data import DataLoader, Dataset
+
+
+def load_fashiongen_data(data_dir: str):
+    file = h5py.File(data_dir, "r")
+
+    return file
+
+
+def get_file_paths(data_dir: str):
+    pass
 
 
 class FashionGenDataset(Dataset):
-    def __init__(self, file_path):
-        self.file = h5py.File(file_path, "r")
+    def __init__(self, data_dir: str):
+        self.file = load_fashiongen_data(data_dir)
         self.length = len(self.file["index"])
 
     def __len__(self):
@@ -37,11 +48,21 @@ class FashionGenDataset(Dataset):
         }
         return sample
 
-    def __get_sample__(self, idx):
-        sample = {
-            "image": T.ToPILImage()(
-                torch.tensor(self.file["input_image"][idx]).permute((2, 0, 1))
-            ),
-            "description": self.file["input_description"][idx][0],
-        }
-        return sample
+
+class FashionGenDataModule(LightningDataModule):
+    def __init__(self, data_dir: str, batch_size: int = 32):
+        super().__init__()
+        self.data_dir = data_dir
+        self.batch_size = batch_size
+        self.train_file, self.val_file = get_file_paths(data_dir)
+
+    def setup(self, stage: str) -> None:
+        if stage == "fit" or stage is None:
+            self.train_dataset = FashionGenDataset(self.train_file)
+            self.val_dataset = FashionGenDataset(self.val_file)
+
+    def train_dataloader(self):
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True)
+
+    def val_dataloader(self):
+        return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False)
