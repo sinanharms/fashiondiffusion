@@ -1,3 +1,5 @@
+import os
+
 import h5py
 import torch
 import torchvision.transforms as T
@@ -11,8 +13,10 @@ def load_fashiongen_data(data_dir: str):
     return file
 
 
-def get_file_paths(data_dir: str):
-    pass
+def list_file_paths(data_dir: str):
+    return (
+        f for f in os.listdir(data_dir) if os.path.isfile(os.path.join(data_dir, f))
+    )
 
 
 class FashionGenDataset(Dataset):
@@ -54,7 +58,7 @@ class FashionGenDataModule(LightningDataModule):
         super().__init__()
         self.data_dir = data_dir
         self.batch_size = batch_size
-        self.train_file, self.val_file = get_file_paths(data_dir)
+        self.train_file, self.val_file = list_file_paths(data_dir)
 
     def setup(self, stage: str) -> None:
         if stage == "fit" or stage is None:
