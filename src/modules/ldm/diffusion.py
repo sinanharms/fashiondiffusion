@@ -58,6 +58,7 @@ class Diffusion(pl.LightningModule):
         use_positional_encodings=False,
         learn_logvar=False,
         logvar_init: float = 0.0,
+        load_ema=True,
     ):
         super().__init__()
         if ignore_keys is None:
@@ -80,7 +81,7 @@ class Diffusion(pl.LightningModule):
         count_params(self.model, verbose=True)
         self.use_ema = use_ema
 
-        if self.use_ema:
+        if self.use_ema and load_ema:
             self.model_ema = EMA(self.model)
             print(f"Keeping EMAs of {len(list(self.model_ema.buffers()))}")
 
@@ -96,7 +97,7 @@ class Diffusion(pl.LightningModule):
             self.monitor = monitor
         if ckpt_path is not None:
             self.init_from_ckpt(
-                ckpt_path, ignore_keys=ignore_keys, only_model=load_only_unet
+                ckpt_path, ignore_keys=ignore_keys or [], only_model=load_only_unet
             )
 
         self.register_schedule(
@@ -221,6 +222,8 @@ class Diffusion(pl.LightningModule):
         if "state_dict" in list(ckpt.keys()):
             ckpt = ckpt["state_dict"]
         keys = list(ckpt.keys())
+
+        self_sd = self.state_dict()
         for key in keys:
             for ik in ignore_keys:
                 if key.startswith(ik):

@@ -41,6 +41,7 @@ class LatentDiffusion(Diffusion):
         conditioning_key=None,
         scale_factor=1.0,
         scale_by_std=False,
+        load_ema=True,
         *args,
         **kwargs,
     ):
@@ -53,7 +54,9 @@ class LatentDiffusion(Diffusion):
             cond_stage_config = None
         ckpt_path = kwargs.pop("ckpt_path", None)
         ignore_keys = kwargs.pop("ignore_keys", [])
-        super().__init__(conditioning_key=conditioning_key, *args, **kwargs)
+        super().__init__(
+            *args, conditioning_key=conditioning_key, load_ema=load_ema, **kwargs
+        )
         self.concat_mode = concat_mode
         self.cond_stage_trainable = cond_stage_trainable
         self.cond_stage_key = cond_stage_key
@@ -75,6 +78,10 @@ class LatentDiffusion(Diffusion):
         if ckpt_path is not None:
             self.init_from_ckpt(ckpt_path, ignore_keys=ignore_keys)
             self.restart_from_ckpt = True
+
+            if self.use_ema and not load_ema:
+                self.model_ema = EMA(self.model)
+                logger.info(f"Keeping EMAs of {len(list(self.model_ema.buffers()))}.")
 
     def make_cond_schedule(
         self,

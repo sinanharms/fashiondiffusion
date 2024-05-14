@@ -41,6 +41,7 @@ model:
         transformer_depth: 1
         context_dim: 768
         use_checkpoint: True
+        use_fp16: True
         legacy: False
 
     first_stage_config:

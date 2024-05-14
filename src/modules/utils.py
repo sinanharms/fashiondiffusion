@@ -186,13 +186,13 @@ def instantiate_from_config(config):
     return get_obj_from_str(config["target"])(**config.get("params", {}))
 
 
-def load_model_from_config(config, ckpt_path=None, verbose=False):
+def load_model_from_config(config, device: str, ckpt_path=None, verbose=False):
     """
     Load a .model from a configuration dictionary.
     """
     logger.info(f"Instantiating .model from config: {config}")
     logger.info(f"Loading .model from checkpoint: {ckpt_path}")
-    pl_sd = torch.load(ckpt_path, map_location="cpu")
+    pl_sd = torch.load(ckpt_path, map_location=device)
     if "global_step" in pl_sd:
         logger.info(f"Global Step: {pl_sd['global_step']}")
     state_dict = pl_sd["state_dict"]
@@ -205,7 +205,7 @@ def load_model_from_config(config, ckpt_path=None, verbose=False):
         logger.info(f"Unexpected keys: {u}")
         print(u)
 
-    model.cuda()
+    model.to(device)
     model.eval()
     return model
 
