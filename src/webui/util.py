@@ -13,7 +13,7 @@ from modules.sampler.ddim import DDIMSampler
 from modules.sampler.plms import PLMSSampler
 from modules.utils import get_device, load_model_from_config
 
-config = OmegaConf.load("src/config/txt2img.yaml")
+config = OmegaConf.load("../config/txt2img.yaml")
 ckpt = "src/.model/ldm/model.ckpt"
 device = get_device()
 

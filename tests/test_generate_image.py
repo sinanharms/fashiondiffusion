@@ -17,15 +17,15 @@ if __name__ == "__main__":
     device = get_device()
 
     LATENT_CHANNELS: int = 4
-    num_iter = 2
+    num_iter = 1
     guidance_scale = 7.5
     num_outputs = 1
     num_inference_steps = 50
     ddim_eta = 0.0
-    height = 64
-    width = 64
+    height = 16
+    width = 16
 
-    model: LatentDiffusion = load_model_from_config(config, ckpt)
+    model: LatentDiffusion = load_model_from_config(config, device, ckpt)
     model.to(device)
 
     sampler = DDIMSampler(model)

@@ -12,6 +12,7 @@ from torchvision.utils import make_grid
 from tqdm import tqdm
 
 from modules.diffusionmodules.diagonalgaussian import DiagonalGaussian
+from modules.ema import EMA
 from modules.encoders.autoencoder import AutoEncoder
 from modules.ldm.diffusion import Diffusion, __conditioning_keys__
 from modules.utils import default, instantiate_from_config
@@ -152,7 +153,7 @@ class LatentDiffusion(Diffusion):
                 logger.info("Using first stage also as cond stage.")
                 self.cond_stage_model = self.first_stage_model
             elif config == "__is_unconditional__":
-                logger.info(f"Training {self.__class__.__name__} unconditional .model.")
+                logger.info(f"Training {self.__class__.__name__} unconditional model.")
                 self.cond_stage_model = None
                 # self.be_unconditional = True
             else:

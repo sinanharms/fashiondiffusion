@@ -1,8 +1,11 @@
 import importlib
 import math
+import os
 from inspect import isfunction
+from typing import Optional, Union
 
 import numpy as np
+import safetensors.torch
 import torch
 import torch.nn as nn
 from einops import repeat
@@ -188,11 +191,11 @@ def instantiate_from_config(config):
 
 def load_model_from_config(config, device: str, ckpt_path=None, verbose=False):
     """
-    Load a .model from a configuration dictionary.
+    Load a model from a configuration dictionary.
     """
     logger.info(f"Instantiating .model from config: {config}")
-    logger.info(f"Loading .model from checkpoint: {ckpt_path}")
-    pl_sd = torch.load(ckpt_path, map_location=device)
+    logger.info(f"Loading model from checkpoint: {ckpt_path}")
+    pl_sd = load_state_dict(ckpt_path, device=device)
     if "global_step" in pl_sd:
         logger.info(f"Global Step: {pl_sd['global_step']}")
     state_dict = pl_sd["state_dict"]
@@ -266,3 +269,61 @@ def make_beta_schedule(
     else:
         raise ValueError(f"Unknown beta schedule: {schedule}")
     return betas.numpy()
+
+
+def load_state_dict(
+    checkpoint_file: Union[str, os.PathLike],
+    device: str = "cpu",
+    variant: Optional[str] = None,
+):
+    """
+    Load a state dict from a checkpoint file.
+
+    Args:
+        checkpoint_file: The path to the checkpoint file.
+        variant: The variant of the checkpoint file.
+
+    Returns:
+        The state dict.
+    """
+    try:
+        weights_only_kwarg = {"weights_only": True}
+        if device == torch.device("mps"):
+            state_dict = torch.load(
+                checkpoint_file, map_location="cpu", **weights_only_kwarg
+            )
+            state_dict = convert_state_dict_to_float32(state_dict)
+        else:
+            state_dict = torch.load(
+                checkpoint_file, map_location=device, **weights_only_kwarg
+            )
+        return state_dict
+    except Exception as e:
+        try:
+            with open(checkpoint_file) as f:
+                if f.read().startswith("version"):
+                    raise OSError(
+                        "You seem to have cloned a repository without having git-lfs installed. Please install "
+                        "git-lfs and run `git lfs install` followed by `git lfs pull` in the folder "
+                        "you cloned."
+                    )
+                else:
+                    raise ValueError(
+                        f"Unable to locate the file {checkpoint_file} which is necessary to load this pretrained "
+                        "model. Make sure you have saved the model properly."
+                    ) from e
+        except (UnicodeDecodeError, ValueError):
+            raise OSError(
+                f"Unable to load weights from checkpoint file for '{checkpoint_file}' "
+                f"at '{checkpoint_file}'. "
+            )
+
+
+def convert_state_dict_to_float32(state_dict):
+    """
+    Convert the state dict to float32.
+    """
+    for k, v in state_dict.items():
+        if isinstance(v, torch.Tensor) and v.dtype == torch.float64:
+            state_dict[k] = v.float()
+    return state_dict
