@@ -1,6 +1,7 @@
 from abc import abstractmethod
-from typing import List, Set, Tuple
+from typing import Any, List, Set, Tuple
 
+import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -11,6 +12,9 @@ from modules.utils import (
     avg_pool_nd,
     checkpoint,
     conv_nd,
+    default,
+    get_device,
+    instantiate_from_config,
     linear,
     normalization,
     timestep_embedding,
@@ -36,180 +40,6 @@ def convert_module_to_fp32(x):
         x.weight.data = x.weight.data.float()
         if x.bias is not None:
             x.bias.data = x.bias.data.float()
-
-
-class TimestepBlock(nn.Module):
-    """
-    A module where forward() takes an additional timestep embedding.
-    """
-
-    @abstractmethod
-    def forward(self, x, emb):
-        """
-        apply the forward pass of the module
-        """
-
-
-class TimestepEmbedSequential(nn.Sequential, TimestepBlock):
-    """
-    A sequential module where forward() takes an additional timestep embedding.
-    """
-
-    def forward(self, x, emb, context=None):
-        for module in self:
-            if isinstance(module, TimestepBlock):
-                x = module(x, emb)
-            elif isinstance(module, SpatialTransformer):
-                x = module(x, context)
-            else:
-                x = module(x)
-        return x
-
-
-class Upsample(nn.Module):
-    def __init(self, channels, use_conv, dims=2, out_channels=None, padding=1):
-        super().__init__()
-        self.channels = channels
-        self.use_conv = use_conv
-        self.dims = dims
-        self.out_channels = out_channels or channels
-        self.padding = padding
-
-        if use_conv:
-            self.conv = conv_nd(
-                dims, self.channels, self.out_channels, 3, padding=padding
-            )
-
-    def forward(self, x):
-        assert x.shape[1] == self.channels
-        if self.dims == 3:
-            x = F.interpolate(
-                x, (x.shape[2], x.shape[3] * 2, x.shape[4] * 2), mode="nearest"
-            )
-        else:
-            x = F.interpolate(x, scale_factor=2, mode="nearest")
-        if self.use_conv:
-            x = self.conv(x)
-        return x
-
-
-class Downsample(nn.Module):
-    def __init__(self, channels, use_conv, dims=2, out_channels=None, padding=1):
-        super().__init__()
-        self.channels = channels
-        self.out_channels = out_channels or channels
-        self.use_conv = use_conv
-        self.dims = dims
-        stride = 2 if dims != 3 else (1, 2, 2)
-        if use_conv:
-            self.op = conv_nd(
-                dims,
-                self.channels,
-                self.out_channels,
-                3,
-                stride=stride,
-                padding=padding,
-            )
-        else:
-            assert self.channels == self.out_channels
-            self.op = avg_pool_nd(dims, kernel_size=stride, stride=stride)
-
-    def forward(self, x):
-        assert x.shape[1] == self.channels
-        return self.op(x)
-
-
-class ResBlock(TimestepBlock):
-    def __init__(
-        self,
-        channels,
-        emb_channels,
-        dropout,
-        out_channels=None,
-        use_conv=False,
-        use_scale_shift_norm=False,
-        dims=2,
-        use_checkpoint=False,
-        up=False,
-        down=False,
-    ):
-        super().__init__()
-        self.channels = channels
-        self.emb_channels = emb_channels
-        self.dropout = dropout
-        self.out_channels = out_channels or channels
-        self.use_conv = use_conv
-        self.use_checkpoint = use_checkpoint
-        self.use_scale_shift_norm = use_scale_shift_norm
-
-        self.in_layers = nn.Sequential(
-            normalization(channels),
-            nn.SiLU(),
-            conv_nd(dims, channels, channels, self.out_channels, padding=1),
-        )
-
-        self.updown = up or down
-
-        if up:
-            self.h_upd = Upsample(channels, False, dims)
-            self.x_upd = Upsample(channels, False, dims)
-        elif down:
-            self.h_upd = Downsample(channels, False, dims)
-            self.x_upd = Downsample(channels, False, dims)
-        else:
-            self.h_upd = self.x_upd = nn.Identity()
-
-        self.emb_layers = nn.Sequential(
-            nn.SiLU(),
-            linear(
-                emb_channels,
-                2 * self.out_channels if use_scale_shift_norm else self.out_channels,
-            ),
-        )
-        self.out_layers = nn.Sequential(
-            normalization(self.out_channels),
-            nn.SiLU(),
-            nn.Dropout(dropout),
-            zero_module(
-                conv_nd(dims, self.out_channels, self.out_channels, 3, padding=1)
-            ),
-        )
-
-        if self.out_channels == channels:
-            self.skip_connection = nn.Identity()
-        elif use_conv:
-            self.skip_connection = conv_nd(
-                dims, channels, self.out_channels, 3, padding=1
-            )
-        else:
-            self.skip_connection = conv_nd(dims, channels, self.out_channels, 1)
-
-    def forward(self, x, emb):
-        return checkpoint(
-            self._forward, (x, emb), self.parameters(), self.use_checkpoint
-        )
-
-    def _forward(self, x, emb):
-        if self.updown:
-            in_rest, in_conv = self.in_layers[:-1], self.in_layers[-1]
-            h = in_rest(x)
-            h = self.h_upd(h)
-            x = self.x_upd(x)
-            h = in_conv(h)
-        else:
-            h = self.in_layers(x)
-        out = self.emb_layers(emb).type(h.dtype)
-        while len(out.shape) < len(h.shape):
-            out = out[..., None]
-        if self.use_scale_shift_norm:
-            out_norm, out_rest = self.out_layers[0], self.out_layers[1:]
-            scale, shift = torch.chunk(out, 2, dim=1)
-            h = out_norm(h) * (1 + scale) + shift
-            h = out_rest(h)
-        else:
-            h = h + out
-            h = self.out_layers(h)
-        return h + self.skip_connection(x)
 
 
 class UNetModel(nn.Module):
@@ -542,3 +372,85 @@ class UNetModel(nn.Module):
         h = h.type(x.dtype)
 
         return self.out(h)
+
+
+class UNet(pl.LightningModule):
+    def __init__(
+        self,
+        unet_encoder_config,
+        unet_decoder_config,
+        num_timestep_cond=None,
+        cond_stage_key="image",
+        cond_stage_trainable=False,
+        concat_mode=True,
+        cond_stage_forward=None,
+        conditioning_key=None,
+        scale_factor=1.0,
+        unet_bs=1,
+        scale_by_std=False,
+        *args,
+        **kwargs,
+    ):
+        self.num_timestep_cond = default(num_timestep_cond, 1)
+        self.scale_by_std = scale_by_std
+        assert self.num_timestep_cond <= kwargs["timesteps"]
+        if conditioning_key is None:
+            conditioning_key = "concat" if concat_mode else "crossattn"
+        ckpt_path = kwargs.pop("ckpt_path", None)
+        ignore_keys = kwargs.pop("ignore_keys", [])
+        super().__init__(conditioning_key=conditioning_key, *args, **kwargs)
+        self.concat_mode = concat_mode
+        self.cond_stage_trainable = cond_stage_trainable
+        self.cond_stage_key = cond_stage_key
+        self.num_downs = 0
+        self._device = get_device()
+        self.unet_encoder_config = unet_encoder_config
+        self.unet_decoder_config = unet_decoder_config
+        if not scale_by_std:
+            self.scale_factor = scale_factor
+        else:
+            self.register_buffer("scale_factor", torch.tensor(scale_factor))
+        self.cond_stage_forward = cond_stage_forward
+        self.clip_denoised = False
+        self.bbox_tokenizer = None
+        self.encode = UNetEncoderWrapper(unet_encoder_config)
+        self.decode = UNetDecoderWrapper(unet_decoder_config)
+        self.encode.eval()
+        self.decode.eval()
+        self.turbo = False
+        self.unet_bs = unet_bs
+        self.restarted_from_ckpt = False
+        if ckpt_path is not None:
+            self.init_from_ckpt(ckpt_path, ignore_keys=ignore_keys)
+            self.restarted_from_ckpt = True
+
+    def make_cond_schedule(self):
+        self.cond_ids = torch.full(
+            size=(self.num_timesteps,),
+            fill_value=self.num_timesteps - 1,
+            dtype=torch.long,
+        )
+        ids = torch.round(
+            torch.linspace(0, self.num_timesteps - 1, self.num_timestep_cond)
+        ).long()
+        self.cond_ids[: self.num_timestep_cond] = ids
+
+
+class UNetEncoderWrapper(pl.LightningModule):
+    def __init__(self, unet_encoder_config):
+        super().__init__()
+        self.unet_encoder = instantiate_from_config(unet_encoder_config)
+
+    def forward(self, x, timesteps, context):
+        out = self.unet_encoder(x, timesteps, context=context)
+        return out
+
+
+class UNetDecoderWrapper(pl.LightningModule):
+    def __init__(self, unet_decoder_config):
+        super().__init__()
+        self.unet_decoder = instantiate_from_config(unet_decoder_config)
+
+    def forward(self, h, emb, tp, hs, context) -> Any:
+        out = self.unet_decoder(h, emb, tp, hs, context=context)
+        return out

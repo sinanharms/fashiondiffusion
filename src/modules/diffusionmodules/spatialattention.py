@@ -58,14 +58,53 @@ class FeedForward(nn.Module):
         return self.net(x)
 
 
+class SpatialSelfAttention(nn.Module):
+    def __init__(self, in_channels):
+        super().__init__()
+        self.in_channels = in_channels
+        self.norm = Normalize(in_channels)
+        self.q = nn.Conv2d(in_channels, in_channels, 1, 1, 0)
+        self.k = nn.Conv2d(in_channels, in_channels, 1, 1, 0)
+        self.v = nn.Conv2d(in_channels, in_channels, 1, 1, 0)
+        self.proj_out = nn.Conv2d(in_channels, in_channels, 1, 1, 0)
+
+    def forward(self, x):
+        h_ = x
+        h_ = self.norm(h_)
+        q = self.q(h_)
+        k = self.k(h_)
+        v = self.v(h_)
+
+        # compute attention
+        b, c, h, w = q.shape
+        q = rearrange(q, "b c h w -> b (h w) c")
+        k = rearrange(k, "b c h w -> b c (h w)")
+        w_ = einsum("b i j, b j k -> b i k", q, k)
+
+        w_ = w_ / (int(c) ** (-0.5))
+        w_ = F.softmax(w_, dim=2)
+
+        # attend to values
+        v = rearrange(v, "b c h w -> b c (h w)")
+        w_ = rearrange(w_, " b i j -> b j i")
+        h_ = torch.einsum("b i j, b j k -> b i k", v, w_)
+        h_ = rearrange(h_, "b c (h w) -> b c h w", h=h, w=w)
+        h_ = self.proj_out(h_)
+
+        return x + h_
+
+
 class CrossAttention(nn.Module):
-    def __init__(self, query_dim, context_dim=None, heads=8, d_head=64, dropout=0.0):
+    def __init__(
+        self, query_dim, context_dim=None, heads=8, d_head=64, dropout=0.0, att_steps=1
+    ):
         super().__init__()
         inner_dim = heads * d_head
         context_dim = default(context_dim, query_dim)
 
         self.scale = d_head**-0.5
         self.heads = heads
+        self.att_steps = att_steps
 
         self.to_q = nn.Linear(query_dim, inner_dim, bias=False)
         self.to_k = nn.Linear(context_dim, inner_dim, bias=False)
@@ -83,21 +122,42 @@ class CrossAttention(nn.Module):
             self.to_k(default(context, x)),
             self.to_v(default(context, x)),
         )
+        del context, x
 
         q, k, v = map(lambda t: rearrange(t, "b n (h d) -> b h n d", h=h), (q, k, v))
 
-        sim = einsum("b i d, b j d -> b i j", q, k) * self.scale
+        limit = k.shape[0]
+        att_steps = self.att_steps
+        q_chunks = list(torch.tensor_split(q, limit // att_steps, dim=0))
+        k_chunks = list(torch.tensor_split(k, limit // att_steps, dim=0))
+        v_chunks = list(torch.tensor_split(v, limit // att_steps, dim=0))
 
-        if exists(mask):
-            mask = rearrange(mask, "b ... -> b (...)")
-            mask_neg_value = -torch.finfo(sim.dtype).max
-            mask = repeat(mask, "b j -> (b h) () j", h=h)
-            sim.masked_fill_(~mask, mask_neg_value)
+        q_chunks.reverse()
+        k_chunks.reverse()
+        v_chunks.reverse()
 
-        attn = sim.softmax(dim=-1)
-        out = einsum("b i j, b j d -> b i d", attn, v)
-        out = rearrange(out, "(b h) n d -> b n (h d)")
-        return self.to_out(out)
+        sim = torch.zeros(q.shape[0], q.shape[1], k.shape[2], device=q.device)
+        del q, k, v
+
+        for i in range(0, limit, att_steps):
+            q_buffer = q_chunks.pop()
+            k_buffer = k_chunks.pop()
+            v_buffer = v_chunks.pop()
+            sim_buffer = (
+                einsum("b i d, b j d -> b i j", q_buffer, k_buffer) * self.scale
+            )
+
+            del q_buffer, k_buffer
+
+            sim_buffer = sim_buffer.softmax(dim=-1)
+
+            sim_buffer = einsum("b i j, b j d -> b i d", sim_buffer, v_buffer)
+            del v_buffer
+            sim[i : i + att_steps, :, :] = sim_buffer
+            del sim_buffer
+
+        sim = rearrange(sim, "(b h) n d -> b n (h d)", h=h)
+        return self.to_out(sim)
 
 
 class TransformerBlock(nn.Module):
