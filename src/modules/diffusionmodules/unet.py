@@ -14,7 +14,14 @@ from tqdm import tqdm
 from modules.diffusionmodules.attention import AttentionBlock
 from modules.diffusionmodules.diagonalgaussian import DiagonalGaussian
 from modules.diffusionmodules.spatialattention import SpatialTransformer
-from modules.diffusionmodules.unet_modules import UNetDecode, UNetEncode
+from modules.diffusionmodules.unet_modules import (
+    Downsample,
+    ResBlock,
+    TimestepEmbedSequential,
+    UNetDecode,
+    UNetEncode,
+    Upsample,
+)
 from modules.encoders.autoencoder import AutoEncoder
 from modules.ldm.diffusion import Diffusion
 from modules.sampler.ddim import make_ddim_sampling_parameters, make_ddim_schedule
