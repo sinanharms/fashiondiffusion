@@ -6,9 +6,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from spatialattention import SpatialTransformer
 
 from modules.diffusionmodules.attention import AttentionBlock
+from modules.diffusionmodules.spatialattention import SpatialTransformer
 from src.modules.utils import (
     avg_pool_nd,
     checkpoint,
@@ -281,6 +281,7 @@ class UNetEncode(nn.Module):
         legacy=True,
     ):
         super().__init__()
+        self.use_spatial_transformer = use_spatial_transformer
         if self.use_spatial_transformer:
             assert context_dim is not None, "Spatial Transformer requires context_dim"
 
@@ -328,7 +329,11 @@ class UNetEncode(nn.Module):
         )
 
         self.input_blocks = nn.ModuleList(
-            [TimestepEmbedSequential(conv_nd(dims, in_channels, ch, 3, padding=1))]
+            [
+                TimestepEmbedSequential(
+                    conv_nd(dims, in_channels, model_channels, 3, padding=1)
+                )
+            ]
         )
         self._feature_size = model_channels
         input_block_channels = [model_channels]

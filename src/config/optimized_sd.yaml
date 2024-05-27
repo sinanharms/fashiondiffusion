@@ -1,4 +1,4 @@
-modelUNet:
+model:
   base_learning_rate: 1.0e-04
   target: modules.diffusionmodules.unet.UNet
   params:
@@ -17,7 +17,7 @@ modelUNet:
     scale_factor: 0.18215
     use_ema: False
 
-    unetConfigEncode:
+    unet_encoder_config:
       target: modules.diffusionmodules.unet_modules.UNetEncode
       params:
         image_size: 32 # unused
@@ -34,7 +34,7 @@ modelUNet:
         use_checkpoint: True
         legacy: False
 
-    unetConfigDecode:
+    unet_decoder_config:
       target: modules.diffusionmodules.unet_modules.UNetDecode
       params:
         image_size: 32 # unused

@@ -406,7 +406,7 @@ class UNet(Diffusion):
         self,
         unet_encoder_config,
         unet_decoder_config,
-        num_timestep_cond=None,
+        num_timesteps_cond=None,
         cond_stage_key="image",
         cond_stage_trainable=False,
         concat_mode=True,
@@ -418,7 +418,7 @@ class UNet(Diffusion):
         *args,
         **kwargs,
     ):
-        self.num_timestep_cond = default(num_timestep_cond, 1)
+        self.num_timestep_cond = default(num_timesteps_cond, 1)
         self.scale_by_std = scale_by_std
         assert self.num_timestep_cond <= kwargs["timesteps"]
         if conditioning_key is None:
@@ -431,6 +431,7 @@ class UNet(Diffusion):
         self.cond_stage_key = cond_stage_key
         self.num_downs = 0
         self._device = get_device()
+        logger.info(f"Using device: {self._device}")
         self.unet_encoder_config = unet_encoder_config
         self.unet_decoder_config = unet_decoder_config
         if not scale_by_std:
