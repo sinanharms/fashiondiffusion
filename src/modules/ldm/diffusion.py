@@ -31,10 +31,8 @@ __conditioning_keys__ = {
 class Diffusion(pl.LightningModule):
     def __init__(
         self,
-        unet_config,
         timesteps=1000,
         beta_schedule="linear",
-        loss_type="l2",
         ckpt_path=None,
         ignore_keys=None,
         load_only_unet=False,
@@ -56,9 +54,6 @@ class Diffusion(pl.LightningModule):
         parameterization="eps",  # all assuming fixed variance schedules
         scheduler_config=None,
         use_positional_encodings=False,
-        learn_logvar=False,
-        logvar_init: float = 0.0,
-        load_ema=True,
     ):
         super().__init__()
         if ignore_keys is None:
@@ -72,19 +67,11 @@ class Diffusion(pl.LightningModule):
             f"{self.__class__.__name__}: Running in {self.parameterization}-prediction mode"
         )
         self.cond_stage_model = None
-        self.clip_denosied = clip_denoised
+        self.clip_denoised = clip_denoised
         self.log_every_t = log_every_t
         self.image_size = image_size
         self.channels = channels
         self.use_positional_encodings = use_positional_encodings
-        self.model = DiffusionWrapper(unet_config, conditioning_key)
-        count_params(self.model, verbose=True)
-        self.use_ema = use_ema
-
-        if self.use_ema and load_ema:
-            self.model_ema = EMA(self.model)
-            print(f"Keeping EMAs of {len(list(self.model_ema.buffers()))}")
-
         self.use_scheduler = scheduler_config is not None
         if self.use_scheduler:
             self.scheduler_config = scheduler_config
@@ -97,7 +84,7 @@ class Diffusion(pl.LightningModule):
             self.monitor = monitor
         if ckpt_path is not None:
             self.init_from_ckpt(
-                ckpt_path, ignore_keys=ignore_keys or [], only_model=load_only_unet
+                ckpt_path, ignore_keys=ignore_keys, only_model=load_only_unet
             )
 
         self.register_schedule(
@@ -108,12 +95,6 @@ class Diffusion(pl.LightningModule):
             linear_end=linear_end,
             cosine_s=cosine_s,
         )
-
-        self.loss_type = loss_type
-        self.learn_logvar = learn_logvar
-        self.logvar = torch.full(fill_value=logvar_init, size=(self.num_timesteps,))
-        if self.learn_logvar:
-            self.logvar = nn.Parameter(self.logvar, requires_grad=True)
 
     def register_schedule(
         self,
@@ -136,7 +117,6 @@ class Diffusion(pl.LightningModule):
             )
         alphas = 1.0 - betas
         alphas_cumprod = np.cumprod(alphas, axis=0)
-        alphas_cumprod_prev = np.append(1.0, alphas_cumprod[:-1])
 
         (timesteps,) = betas.shape
         self.num_timesteps = int(timesteps)
@@ -149,58 +129,6 @@ class Diffusion(pl.LightningModule):
         to_torch = partial(torch.tensor, dtype=torch.float32)
         self.register_buffer("betas", to_torch(betas))
         self.register_buffer("alphas_cumprod", to_torch(alphas_cumprod))
-        self.register_buffer("alphas_cumprod_prev", to_torch(alphas_cumprod_prev))
-
-        self.register_buffer("sqrt_alphas_cumprod", to_torch(np.sqrt(alphas_cumprod)))
-        self.register_buffer(
-            "sqrt_one_minus_alphas_cumprod", to_torch(np.sqrt(1.0 - alphas_cumprod))
-        )
-        self.register_buffer(
-            "log_one_minus_alphas_cumprod", to_torch(np.log(1.0 - alphas_cumprod))
-        )
-        self.register_buffer(
-            "sqrt_recip_alphas_cumprod", to_torch(np.sqrt(1.0 / alphas_cumprod))
-        )
-        self.register_buffer(
-            "sqrt_recipm1_alphas_cumprod", to_torch(np.sqrt(1.0 / alphas_cumprod - 1))
-        )
-
-        posterior_variance = (1 - self.v_posterior) * betas * (
-            1 - alphas_cumprod_prev
-        ) / (1 - alphas_cumprod) + self.v_posterior * betas
-        self.register_buffer("posterior_variance", to_torch(posterior_variance))
-        self.register_buffer(
-            "posterior_log_variance",
-            to_torch(np.log(np.maximum(posterior_variance, 1e-20))),
-        )
-        self.register_buffer(
-            "posterior_mean_coeff1",
-            to_torch(betas * np.sqrt(alphas_cumprod_prev) / (1 - alphas_cumprod)),
-        )
-        self.register_buffer(
-            "posterior_mean_coeff2",
-            to_torch(
-                (1.0 - alphas_cumprod_prev) * np.sqrt(alphas) / (1.0 - alphas_cumprod)
-            ),
-        )
-        if self.parameterization == "eps":
-            lvlb_weights = self.betas**2 / (
-                2
-                * self.posterior_log_variance
-                * to_torch(alphas)
-                * (1 - self.alpha_cumprod)
-            )
-        elif self.parameterization == "x0":
-            lvlb_weights = (
-                0.5
-                * np.sqrt(torch.Tensor(alphas_cumprod))
-                / (2.0 * 1 - torch.Tensor(alphas_cumprod))
-            )
-        else:
-            raise NotImplementedError("Invalid parameterization")
-        lvlb_weights[0] = lvlb_weights[1]
-        self.register_buffer("lvlb_weights", lvlb_weights, persistent=False)
-        assert not torch.isnan(self.lvlb_weights).all()
 
     @contextmanager
     def ema_scope(self, context=None):
